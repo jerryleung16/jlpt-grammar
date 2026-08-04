@@ -12,9 +12,7 @@ const initialState = {
   specialNote: '',
 };
 
-const sampleBatchText = `〜ている | 正在進行的動作 | V-て形 + いる | 彼は本を読んでいる。 | 描述持續動作`;
-
-function parseBatchInput(batchText: string): GrammarCard[] {
+function parseBatchInput(batchText: string, batchLevel: string): GrammarCard[] {
   return batchText
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -25,11 +23,11 @@ function parseBatchInput(batchText: string): GrammarCard[] {
         .map((part) => part.trim())
         .filter(Boolean);
 
-      const [pattern, meaning, connection, example, specialNote] = parts;
+      const [level, pattern, meaning, connection, example, specialNote] = parts;
 
       return {
         id: `batch-${Date.now()}-${index}`,
-        level: 'N5',
+        level: level || batchLevel,
         pattern: pattern || '未命名句型',
         meaning: meaning || '未填寫意思',
         connection: connection || '未填寫接続',
@@ -44,6 +42,7 @@ function parseBatchInput(batchText: string): GrammarCard[] {
 export default function AddGrammarForm() {
   const [form, setForm] = useState(initialState);
   const [batchText, setBatchText] = useState('');
+  const [batchLevel, setBatchLevel] = useState('N5');
   const [message, setMessage] = useState('');
   const [entryMode, setEntryMode] = useState<'single' | 'batch'>('single');
   const batchLineCount = batchText.split(/\r?\n/).filter(Boolean).length;
@@ -52,7 +51,7 @@ export default function AddGrammarForm() {
     event.preventDefault();
 
     if (entryMode === 'batch') {
-      const parsedBatchCards = parseBatchInput(batchText);
+      const parsedBatchCards = parseBatchInput(batchText, batchLevel);
 
       if (parsedBatchCards.length === 0) {
         setMessage('批量輸入區為空，請先貼入要新增的文法內容。');
@@ -199,32 +198,34 @@ export default function AddGrammarForm() {
           </div>
         ) : (
           <div className="space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/60">
-            <p className="text-sm text-slate-700 dark:text-slate-200">
-              批量新增說明：每一行都代表一張文法卡，欄位請依照「句型｜意思｜接続｜例句｜特別說明」的順序填寫。
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setBatchText(sampleBatchText)}
-                className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                貼入範例
-              </button>
-              <button
-                type="button"
-                onClick={() => setBatchText('')}
-                className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                清空
-              </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
+                <span>批量等級</span>
+                <select
+                  value={batchLevel}
+                  onChange={(event) => setBatchLevel(event.target.value)}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-900"
+                >
+                  <option>N5</option>
+                  <option>N4</option>
+                  <option>N3</option>
+                  <option>N2</option>
+                  <option>N1</option>
+                </select>
+              </label>
               <span className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-blue-500">
                 已輸入 {batchLineCount} 行 / {batchLineCount} 張卡
               </span>
             </div>
+
+            <p className="text-sm text-slate-700 dark:text-slate-200">
+              批量新增說明：每一行都代表一張文法卡，欄位請依照「等級｜句型｜意思｜接続｜例句｜特別說明」的順序填寫。
+            </p>
+
             <textarea
               value={batchText}
               onChange={(event) => setBatchText(event.target.value)}
-              placeholder="〜ている | 正在進行的動作 | V-て形 + いる | 彼は本を読んでいる。 | 描述持續動作"
+              placeholder="N5 | 〜ている | 正在進行的動作 | V-て形 + いる | 彼は本を読んでいる。 | 描述持續動作"
               rows={10}
               className="min-h-40 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
