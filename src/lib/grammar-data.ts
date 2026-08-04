@@ -11,7 +11,6 @@ export type GrammarCard = {
   frontText: string;
   backExplanation: string;
   difficultyGroup?: DifficultyGroup;
-  lastRating?: string;
 };
 
 const DEFAULT_GRAMMAR_CARDS: GrammarCard[] = [
@@ -27,7 +26,6 @@ const DEFAULT_GRAMMAR_CARDS: GrammarCard[] = [
     backExplanation:
       "正在進行的動作或目前狀態。例句：彼は本を読んでいる。",
     difficultyGroup: 'easy',
-    lastRating: '尚未評分',
   },
   {
     id: "n5-2",
@@ -41,7 +39,6 @@ const DEFAULT_GRAMMAR_CARDS: GrammarCard[] = [
     backExplanation:
       "表達想要做某事。例句：日本語を勉強したいです。",
     difficultyGroup: 'easy',
-    lastRating: '尚未評分',
   },
   {
     id: "n4-1",
@@ -55,7 +52,6 @@ const DEFAULT_GRAMMAR_CARDS: GrammarCard[] = [
     backExplanation:
       "表示目的或方式。例句：早く寝るようにしました。",
     difficultyGroup: 'easy',
-    lastRating: '尚未評分',
   },
 ];
 

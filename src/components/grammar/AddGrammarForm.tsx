@@ -12,7 +12,7 @@ const initialState = {
   specialNote: '',
 };
 
-function parseBatchInput(batchText: string, batchLevel: string): GrammarCard[] {
+function parseBatchInput(batchText: string): GrammarCard[] {
   return batchText
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -27,7 +27,7 @@ function parseBatchInput(batchText: string, batchLevel: string): GrammarCard[] {
 
       return {
         id: `batch-${Date.now()}-${index}`,
-        level: level || batchLevel,
+        level: level || 'N5',
         pattern: pattern || '未命名句型',
         meaning: meaning || '未填寫意思',
         connection: connection || '未填寫接続',
@@ -42,7 +42,6 @@ function parseBatchInput(batchText: string, batchLevel: string): GrammarCard[] {
 export default function AddGrammarForm() {
   const [form, setForm] = useState(initialState);
   const [batchText, setBatchText] = useState('');
-  const [batchLevel, setBatchLevel] = useState('N5');
   const [message, setMessage] = useState('');
   const [entryMode, setEntryMode] = useState<'single' | 'batch'>('single');
   const batchLineCount = batchText.split(/\r?\n/).filter(Boolean).length;
@@ -51,7 +50,7 @@ export default function AddGrammarForm() {
     event.preventDefault();
 
     if (entryMode === 'batch') {
-      const parsedBatchCards = parseBatchInput(batchText, batchLevel);
+      const parsedBatchCards = parseBatchInput(batchText);
 
       if (parsedBatchCards.length === 0) {
         setMessage('批量輸入區為空，請先貼入要新增的文法內容。');
@@ -199,20 +198,6 @@ export default function AddGrammarForm() {
         ) : (
           <div className="space-y-3 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/60">
             <div className="flex flex-wrap items-center gap-3">
-              <label className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
-                <span>批量等級</span>
-                <select
-                  value={batchLevel}
-                  onChange={(event) => setBatchLevel(event.target.value)}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 outline-none dark:border-slate-700 dark:bg-slate-900"
-                >
-                  <option>N5</option>
-                  <option>N4</option>
-                  <option>N3</option>
-                  <option>N2</option>
-                  <option>N1</option>
-                </select>
-              </label>
               <span className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-blue-500">
                 已輸入 {batchLineCount} 行 / {batchLineCount} 張卡
               </span>

@@ -7,7 +7,6 @@ import { getStoredGrammarCards, saveGrammarCards, type DifficultyGroup } from '@
 
 type SwipeableCardProps = {
   cardId?: string;
-  lastRating?: string;
   frontText: string;
   meaning?: string;
   connection?: string;
@@ -26,7 +25,6 @@ const reviewLabels: Record<Rating, string> = {
 
 export default function SwipeableCard({
   cardId,
-  lastRating: initialLastRating,
   frontText,
   meaning = '—',
   connection = '—',
@@ -38,13 +36,13 @@ export default function SwipeableCard({
   const controls = useAnimation();
   const scheduler = useMemo(() => fsrs(), []);
   const [srsData, setSrsData] = useState<Card>(createEmptyCard());
-  const [lastRating, setLastRating] = useState<string>(initialLastRating ?? '尚未評分');
+  const [lastRating, setLastRating] = useState<string>('尚未評分');
 
   useEffect(() => {
     setSrsData(createEmptyCard());
+    setLastRating('尚未評分');
     setIsFlipped(false);
-    setLastRating(initialLastRating ?? '尚未評分');
-  }, [cardId, initialLastRating]);
+  }, [frontText, meaning, connection, example, specialNote]);
 
   const handleDragEnd = async (_event: MouseEvent | TouchEvent | PointerEvent, info: { offset: { x: number; y: number } }) => {
     const swipeThreshold = 90;
@@ -69,17 +67,14 @@ export default function SwipeableCard({
 
     const nextState = scheduler.next(srsData, new Date(), rating);
     setSrsData(nextState.card);
+    setLastRating(nextDifficultyGroup ? `已標記為${nextDifficultyGroup === 'easy' ? '易卡' : '難卡'}` : reviewLabels[rating]);
 
-    const nextLastRating = nextDifficultyGroup ? `已標記為${nextDifficultyGroup === 'easy' ? '易卡' : '難卡'}` : reviewLabels[rating];
-    setLastRating(nextLastRating);
-
-    if (cardId) {
+    if (cardId && nextDifficultyGroup) {
       const storedCards = getStoredGrammarCards().map((card) =>
         card.id === cardId
           ? {
               ...card,
-              difficultyGroup: nextDifficultyGroup ?? card.difficultyGroup,
-              lastRating: nextLastRating,
+              difficultyGroup: nextDifficultyGroup,
             }
           : card,
       );
