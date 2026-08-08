@@ -1,11 +1,35 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { getStoredGrammarCards, type GrammarCard } from '@/lib/grammar-data';
+import { getStoredGrammarCards, saveGrammarCards, type GrammarCard } from '@/lib/grammar-data';
 import SwipeableCard from '@/components/srs/SwipeableCard';
 
-type ReviewPile = 'all' | 'easy' | 'difficult';
+type ReviewPile = 'all' | 'untagged' | 'easy' | 'difficult';
 const LEVEL_OPTIONS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
+
+function getLabel(card: GrammarCard): Exclude<ReviewPile, 'all'> {
+  if (card.difficultyGroup === 'easy') {
+    return 'easy';
+  }
+
+  if (card.difficultyGroup === 'difficult') {
+    return 'difficult';
+  }
+
+  return 'untagged';
+}
+
+function getLabelText(label: Exclude<ReviewPile, 'all'>): string {
+  if (label === 'easy') {
+    return '易卡';
+  }
+
+  if (label === 'difficult') {
+    return '難卡';
+  }
+
+  return '未標籤';
+}
 
 export default function ReviewQueue() {
   const [queue, setQueue] = useState<GrammarCard[]>([]);
@@ -22,26 +46,30 @@ export default function ReviewQueue() {
   }, []);
 
   const reviewStats = useMemo(() => {
-    const easyCount = queue.filter((card) => (card.difficultyGroup ?? 'easy') === 'easy').length;
-    const difficultCount = queue.filter((card) => (card.difficultyGroup ?? 'easy') === 'difficult').length;
+    const easyCount = queue.filter((card) => getLabel(card) === 'easy').length;
+    const difficultCount = queue.filter((card) => getLabel(card) === 'difficult').length;
+    const untaggedCount = queue.filter((card) => getLabel(card) === 'untagged').length;
 
     return {
       total: queue.length,
+      untagged: untaggedCount,
       easy: easyCount,
       difficult: difficultCount,
     };
   }, [queue]);
 
   const filteredQueue = useMemo(() => {
-    const byPile = pile === 'all' ? queue : queue.filter((card) => (card.difficultyGroup ?? 'easy') === pile);
+    const byPile = pile === 'all' ? queue : queue.filter((card) => getLabel(card) === pile);
     return byPile.filter((card) => selectedLevels.includes(card.level));
   }, [pile, queue, selectedLevels]);
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [pile, selectedLevels]);
+  const activeCard = useMemo(() => {
+    if (filteredQueue.length === 0) {
+      return null;
+    }
 
-  const activeCard = useMemo(() => filteredQueue[activeIndex] ?? filteredQueue[0], [activeIndex, filteredQueue]);
+    return filteredQueue[activeIndex % filteredQueue.length];
+  }, [activeIndex, filteredQueue]);
 
   const handleAdvance = () => {
     if (filteredQueue.length === 0) {
@@ -55,6 +83,33 @@ export default function ReviewQueue() {
     setSelectedLevels((current) =>
       current.includes(level) ? current.filter((item) => item !== level) : [...current, level],
     );
+    setActiveIndex(0);
+  };
+
+  const handlePileChange = (nextPile: ReviewPile) => {
+    setPile(nextPile);
+    setActiveIndex(0);
+  };
+
+  const handleLabelCard = (nextLabel: Exclude<ReviewPile, 'all'>) => {
+    if (!activeCard) {
+      return;
+    }
+
+    const nextDifficultyGroup =
+      nextLabel === 'easy' ? 'easy' : nextLabel === 'difficult' ? 'difficult' : undefined;
+
+    const nextCards = queue.map((card) =>
+      card.id === activeCard.id
+        ? {
+            ...card,
+            difficultyGroup: nextDifficultyGroup,
+          }
+        : card,
+    );
+
+    saveGrammarCards(nextCards);
+    handleAdvance();
   };
 
   return (
@@ -72,7 +127,13 @@ export default function ReviewQueue() {
           </span>
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-800/60">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">
+              未標籤
+            </p>
+            <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{reviewStats.untagged}</p>
+          </div>
           <div className="rounded-2xl bg-emerald-50 p-3 dark:bg-emerald-950/40">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">
               易卡
@@ -105,13 +166,14 @@ export default function ReviewQueue() {
         <div className="flex flex-wrap gap-2">
           {[
             { key: 'all', label: '全部' },
+            { key: 'untagged', label: '未標籤' },
             { key: 'easy', label: '易卡' },
             { key: 'difficult', label: '難卡' },
           ].map((option) => (
             <button
               key={option.key}
               type="button"
-              onClick={() => setPile(option.key as ReviewPile)}
+              onClick={() => handlePileChange(option.key as ReviewPile)}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
                 pile === option.key
                   ? 'bg-slate-900 text-white dark:bg-blue-500'
@@ -153,16 +215,48 @@ export default function ReviewQueue() {
       </div>
 
       {activeCard ? (
-        <SwipeableCard
-          key={`${activeCard.id}-${activeCard.pattern}`}
-          cardId={activeCard.id}
-          frontText={activeCard.frontText}
-          meaning={activeCard.meaning}
-          connection={activeCard.connection}
-          example={activeCard.example}
-          specialNote={activeCard.specialNote}
-          onReviewed={handleAdvance}
-        />
+        <>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
+            目前標籤：
+            <span className="ml-1 font-semibold text-slate-900 dark:text-white">{getLabelText(getLabel(activeCard))}</span>
+          </div>
+
+          <SwipeableCard
+            key={`${activeCard.id}-${activeCard.pattern}`}
+            frontText={activeCard.frontText}
+            meaning={activeCard.meaning}
+            connection={activeCard.connection}
+            example={activeCard.example}
+            specialNote={activeCard.specialNote}
+          />
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-sm text-slate-600 dark:text-slate-300">用按鈕標記卡片，點擊後會自動前往下一張。</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => handleLabelCard('untagged')}
+                className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+              >
+                標記為未標籤
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLabelCard('easy')}
+                className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
+              >
+                標記為易卡
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLabelCard('difficult')}
+                className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 transition hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
+              >
+                標記為難卡
+              </button>
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

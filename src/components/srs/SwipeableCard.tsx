@@ -1,109 +1,30 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { motion, useAnimation } from 'framer-motion';
-import { createEmptyCard, fsrs, Rating, type Card } from 'ts-fsrs';
-import { getStoredGrammarCards, saveGrammarCards, type DifficultyGroup } from '@/lib/grammar-data';
+import { useState } from 'react';
 
 type SwipeableCardProps = {
-  cardId?: string;
   frontText: string;
   meaning?: string;
   connection?: string;
   example?: string;
   specialNote?: string;
-  onReviewed?: () => void;
-};
-
-const reviewLabels: Record<Rating, string> = {
-  [Rating.Manual]: '手動',
-  [Rating.Again]: '再看一次',
-  [Rating.Hard]: '困難',
-  [Rating.Good]: '普通',
-  [Rating.Easy]: '簡單',
 };
 
 export default function SwipeableCard({
-  cardId,
   frontText,
   meaning = '—',
   connection = '—',
   example = '—',
   specialNote = '—',
-  onReviewed,
 }: SwipeableCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
-  const controls = useAnimation();
-  const scheduler = useMemo(() => fsrs(), []);
-  const [srsData, setSrsData] = useState<Card>(createEmptyCard());
-  const [lastRating, setLastRating] = useState<string>('尚未評分');
-
-  useEffect(() => {
-    setSrsData(createEmptyCard());
-    setLastRating('尚未評分');
-    setIsFlipped(false);
-  }, [frontText, meaning, connection, example, specialNote]);
-
-  const handleDragEnd = async (_event: MouseEvent | TouchEvent | PointerEvent, info: { offset: { x: number; y: number } }) => {
-    const swipeThreshold = 90;
-
-    let rating: Rating | null = null;
-    let nextDifficultyGroup: DifficultyGroup | null = null;
-
-    if (info.offset.x < -swipeThreshold) {
-      rating = Rating.Again;
-    } else if (info.offset.x > swipeThreshold) {
-      rating = Rating.Easy;
-      nextDifficultyGroup = 'easy';
-    } else if (info.offset.y < -swipeThreshold) {
-      rating = Rating.Hard;
-      nextDifficultyGroup = 'difficult';
-    }
-
-    if (!rating) {
-      await controls.start({ x: 0, y: 0, transition: { type: 'spring', stiffness: 260, damping: 20 } });
-      return;
-    }
-
-    const nextState = scheduler.next(srsData, new Date(), rating);
-    setSrsData(nextState.card);
-    setLastRating(nextDifficultyGroup ? `已標記為${nextDifficultyGroup === 'easy' ? '易卡' : '難卡'}` : reviewLabels[rating]);
-
-    if (cardId && nextDifficultyGroup) {
-      const storedCards = getStoredGrammarCards().map((card) =>
-        card.id === cardId
-          ? {
-              ...card,
-              difficultyGroup: nextDifficultyGroup,
-            }
-          : card,
-      );
-
-      saveGrammarCards(storedCards);
-    }
-
-    await controls.start({
-      x: info.offset.x * 1.5,
-      y: info.offset.y * 1.5,
-      opacity: 0,
-      transition: { duration: 0.25 },
-    });
-
-    await controls.start({ x: 0, y: 0, opacity: 1, transition: { duration: 0.15 } });
-    setIsFlipped(false);
-    onReviewed?.();
-  };
 
   return (
     <section className="flex flex-col items-center justify-center gap-4">
       <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900">
-        <motion.div
-          drag={isFlipped ? true : false}
-          dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-          onDragEnd={handleDragEnd}
-          animate={controls}
+        <div
           onClick={() => setIsFlipped((current) => !current)}
-          className="min-h-[420px] max-h-[70vh] cursor-pointer touch-none overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-950"
+          className="min-h-[420px] max-h-[70vh] cursor-pointer overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-950"
         >
           {!isFlipped ? (
             <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
@@ -112,7 +33,7 @@ export default function SwipeableCard({
               </span>
               <h2 className="text-4xl font-bold text-slate-900 dark:text-white">{frontText}</h2>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                點擊後翻開解釋，再拖曳評分你的記憶表現。
+                點擊翻開解釋，然後用下方按鈕標記這張卡片。
               </p>
             </div>
           ) : (
@@ -165,19 +86,9 @@ export default function SwipeableCard({
               >
                 翻回正面
               </button>
-
-              <div className="mt-6 grid grid-cols-3 gap-2 text-center text-xs font-bold text-slate-500 dark:text-slate-400">
-                <span>← 再看一次</span>
-                <span>難卡 ↑</span>
-                <span>易卡 →</span>
-              </div>
             </div>
           )}
-        </motion.div>
-      </div>
-
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-        上次評分：<span className="font-semibold text-slate-900 dark:text-white">{lastRating}</span>
+        </div>
       </div>
     </section>
   );
