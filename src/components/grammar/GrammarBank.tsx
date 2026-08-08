@@ -93,11 +93,11 @@ export default function GrammarBank() {
   };
 
   return (
-    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">文法庫</h2>
-          <p className="text-sm text-slate-600 dark:text-slate-300">
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">文法庫</h2>
+          <p className="text-xs text-slate-600 dark:text-slate-300 sm:text-sm">
             可依等級、意思或範例句搜尋句型，並手動編輯／刪除／分類難易卡。
           </p>
         </div>
@@ -109,17 +109,17 @@ export default function GrammarBank() {
         />
       </div>
 
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
+      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
         {filteredCards.map((card) => (
           <article
             key={card.id}
-            className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
+            className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950"
           >
             <div className="flex items-center justify-between gap-3">
               <span className="rounded-full bg-blue-500/10 px-2.5 py-1 text-xs font-semibold text-blue-600 dark:text-blue-300">
                 {card.level}
               </span>
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
                 {card.pattern}
               </span>
             </div>
@@ -168,9 +168,9 @@ export default function GrammarBank() {
               </div>
             ) : (
               <>
-                <h3 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">{card.meaning}</h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{card.example}</p>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <h3 className="mt-2 text-base font-bold text-slate-900 dark:text-white">{card.meaning}</h3>
+                <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{card.example}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   <Link
                     href="/practice"
                     className="inline-flex rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
@@ -192,7 +192,7 @@ export default function GrammarBank() {
                     刪除
                   </button>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-2">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   <button
                     type="button"
                     onClick={() => handleDifficultyGroupChange(card.id, 'difficult')}

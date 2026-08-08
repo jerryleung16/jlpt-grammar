@@ -18,7 +18,8 @@ function parseBatchInput(batchText: string): GrammarCard[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line, index) => {
-      const parts = line
+      const normalizedLine = line.replaceAll('｜', '|');
+      const parts = normalizedLine
         .split('|')
         .map((part) => part.trim())
         .filter(Boolean);
@@ -204,7 +205,7 @@ export default function AddGrammarForm() {
             </div>
 
             <p className="text-sm text-slate-700 dark:text-slate-200">
-              批量新增說明：每一行都代表一張文法卡，欄位請依照「等級｜句型｜意思｜接続｜例句｜特別說明」的順序填寫。
+              批量新增說明：每一行都代表一張文法卡，欄位請依照「等級 | 句型 | 意思 | 接続 | 例句 | 特別說明」的順序填寫。
             </p>
 
             <textarea

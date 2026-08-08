@@ -18,10 +18,10 @@ export default function PracticePage() {
           專注模式
         </p>
         <h1 className="mt-2 text-3xl font-bold text-slate-900 dark:text-white">
-          JLPT 文法 SRS 練習
+          JLPT 文法練習
         </h1>
         <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-          點擊或滑動即可複習文法點，使用現代化的 FSRS 式循環。
+          點擊或滑動即可快速複習，系統會幫你把需要加強的句型更常出現。
         </p>
       </div>
 
