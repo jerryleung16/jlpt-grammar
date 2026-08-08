@@ -79,6 +79,14 @@ export default function ReviewQueue() {
     setActiveIndex((current) => (current + 1) % filteredQueue.length);
   };
 
+  const handlePrevious = () => {
+    if (filteredQueue.length === 0) {
+      return;
+    }
+
+    setActiveIndex((current) => (current - 1 + filteredQueue.length) % filteredQueue.length);
+  };
+
   const toggleLevel = (level: string) => {
     setSelectedLevels((current) =>
       current.includes(level) ? current.filter((item) => item !== level) : [...current, level],
@@ -179,6 +187,13 @@ export default function ReviewQueue() {
               className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               清除所有標籤
+            </button>
+            <button
+              type="button"
+              onClick={handlePrevious}
+              className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              上一張
             </button>
             <button
               type="button"
