@@ -96,7 +96,7 @@ export default function ReviewQueue() {
       return;
     }
 
-    const nextDifficultyGroup =
+    const nextDifficultyGroup: GrammarCard['difficultyGroup'] =
       nextLabel === 'easy' ? 'easy' : nextLabel === 'difficult' ? 'difficult' : undefined;
 
     const nextCards = queue.map((card) =>
