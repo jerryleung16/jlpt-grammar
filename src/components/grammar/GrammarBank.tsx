@@ -129,25 +129,25 @@ export default function GrammarBank() {
                 <input
                   value={draft.pattern}
                   onChange={(event) => setDraft((current) => ({ ...current, pattern: event.target.value }))}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <textarea
                   value={draft.meaning}
                   onChange={(event) => setDraft((current) => ({ ...current, meaning: event.target.value }))}
                   rows={2}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <textarea
                   value={draft.connection}
                   onChange={(event) => setDraft((current) => ({ ...current, connection: event.target.value }))}
                   rows={2}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <textarea
                   value={draft.example}
                   onChange={(event) => setDraft((current) => ({ ...current, example: event.target.value }))}
                   rows={2}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
                 <div className="flex gap-2">
                   <button

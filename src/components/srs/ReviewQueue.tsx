@@ -91,6 +91,23 @@ export default function ReviewQueue() {
     setActiveIndex(0);
   };
 
+  const handleClearAllLabels = () => {
+    const hasAnyLabel = queue.some((card) => card.difficultyGroup === 'easy' || card.difficultyGroup === 'difficult');
+
+    if (!hasAnyLabel) {
+      return;
+    }
+
+    const nextCards = queue.map((card) => ({
+      ...card,
+      difficultyGroup: undefined,
+    }));
+
+    saveGrammarCards(nextCards);
+    setPile('all');
+    setActiveIndex(0);
+  };
+
   const handleLabelCard = (nextLabel: Exclude<ReviewPile, 'all'>) => {
     if (!activeCard) {
       return;
@@ -152,15 +169,25 @@ export default function ReviewQueue() {
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>
-            目前牌組：{pile === 'all' ? '全部' : pile === 'easy' ? '易卡' : '難卡'} · 等級：
+            目前牌組：{pile === 'all' ? '全部' : pile === 'untagged' ? '未標籤' : pile === 'easy' ? '易卡' : '難卡'} · 等級：
             {selectedLevels.length === LEVEL_OPTIONS.length ? '全部' : selectedLevels.join('、') || '無'}
           </span>
-          <button
-            onClick={handleAdvance}
-            className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-blue-500"
-          >
-            下一張
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={handleClearAllLabels}
+              className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              清除所有標籤
+            </button>
+            <button
+              type="button"
+              onClick={handleAdvance}
+              className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-blue-500"
+            >
+              下一張
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-2">
