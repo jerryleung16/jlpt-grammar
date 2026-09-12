@@ -31,14 +31,32 @@ function getLabelText(label: Exclude<ReviewPile, 'all'>): string {
   return '未標籤';
 }
 
+function shuffleCardIds(cards: GrammarCard[]): string[] {
+  const shuffledIds = cards.map((card) => card.id);
+
+  for (let index = shuffledIds.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffledIds[index], shuffledIds[randomIndex]] = [shuffledIds[randomIndex], shuffledIds[index]];
+  }
+
+  return shuffledIds;
+}
+
 export default function ReviewQueue() {
   const [queue, setQueue] = useState<GrammarCard[]>([]);
+  const [shuffleOrder, setShuffleOrder] = useState<string[] | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [pile, setPile] = useState<ReviewPile>('all');
   const [selectedLevels, setSelectedLevels] = useState<string[]>([...LEVEL_OPTIONS]);
 
   useEffect(() => {
-    const refreshQueue = () => setQueue(getStoredGrammarCards());
+    const refreshQueue = () => {
+      const nextQueue = getStoredGrammarCards();
+      setQueue(nextQueue);
+      setShuffleOrder((current) =>
+        current ? current.filter((cardId) => nextQueue.some((card) => card.id === cardId)) : current,
+      );
+    };
     refreshQueue();
 
     window.addEventListener('grammar-cards-updated', refreshQueue);
@@ -58,10 +76,24 @@ export default function ReviewQueue() {
     };
   }, [queue]);
 
+  const orderedQueue = useMemo(() => {
+    if (!shuffleOrder) {
+      return queue;
+    }
+
+    const cardsById = new Map(queue.map((card) => [card.id, card]));
+    const shuffledCards = shuffleOrder
+      .map((cardId) => cardsById.get(cardId))
+      .filter((card): card is GrammarCard => Boolean(card));
+    const shuffledIds = new Set(shuffleOrder);
+
+    return [...shuffledCards, ...queue.filter((card) => !shuffledIds.has(card.id))];
+  }, [queue, shuffleOrder]);
+
   const filteredQueue = useMemo(() => {
-    const byPile = pile === 'all' ? queue : queue.filter((card) => getLabel(card) === pile);
+    const byPile = pile === 'all' ? orderedQueue : orderedQueue.filter((card) => getLabel(card) === pile);
     return byPile.filter((card) => selectedLevels.includes(card.level));
-  }, [pile, queue, selectedLevels]);
+  }, [orderedQueue, pile, selectedLevels]);
 
   const activeCard = useMemo(() => {
     if (filteredQueue.length === 0) {
@@ -96,6 +128,20 @@ export default function ReviewQueue() {
 
   const handlePileChange = (nextPile: ReviewPile) => {
     setPile(nextPile);
+    setActiveIndex(0);
+  };
+
+  const handleShuffle = () => {
+    if (orderedQueue.length === 0) {
+      return;
+    }
+
+    setShuffleOrder(shuffleCardIds(orderedQueue));
+    setActiveIndex(0);
+  };
+
+  const handleResetOrder = () => {
+    setShuffleOrder(null);
     setActiveIndex(0);
   };
 
@@ -187,6 +233,22 @@ export default function ReviewQueue() {
               className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               清除所有標籤
+            </button>
+            <button
+              type="button"
+              onClick={handleShuffle}
+              disabled={orderedQueue.length < 2}
+              className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              {shuffleOrder ? '重新洗牌' : '洗牌'}
+            </button>
+            <button
+              type="button"
+              onClick={handleResetOrder}
+              disabled={!shuffleOrder}
+              className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              原始順序
             </button>
             <button
               type="button"

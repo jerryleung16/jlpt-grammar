@@ -64,12 +64,12 @@ export function getStoredGrammarCards(): GrammarCard[] {
 
   try {
     const saved = window.localStorage.getItem(STORAGE_KEY);
-    if (!saved) {
+    if (saved === null) {
       return DEFAULT_GRAMMAR_CARDS;
     }
 
     const parsed = JSON.parse(saved) as GrammarCard[];
-    return parsed.length > 0 ? parsed : DEFAULT_GRAMMAR_CARDS;
+    return Array.isArray(parsed) ? parsed : DEFAULT_GRAMMAR_CARDS;
   } catch {
     return DEFAULT_GRAMMAR_CARDS;
   }

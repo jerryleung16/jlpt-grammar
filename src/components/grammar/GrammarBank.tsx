@@ -13,11 +13,15 @@ const EMPTY_FORM = {
   specialNote: '',
 };
 
+const DELETE_CONFIRMATION_TEXT = '刪除全部';
+
 export default function GrammarBank() {
   const [query, setQuery] = useState('');
   const [cards, setCards] = useState<GrammarCard[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(EMPTY_FORM);
+  const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
   useEffect(() => {
     const refreshCards = () => setCards(getStoredGrammarCards());
@@ -35,7 +39,9 @@ export default function GrammarBank() {
     }
 
     return cards.filter((card) => {
-      const haystack = [card.pattern, card.meaning, card.level, card.example].join(' ').toLowerCase();
+      const haystack = [card.pattern, card.meaning, card.level, card.example, card.specialNote]
+        .join(' ')
+        .toLowerCase();
       return haystack.includes(normalized);
     });
   }, [cards, query]);
@@ -43,6 +49,18 @@ export default function GrammarBank() {
   const handleDelete = (cardId: string) => {
     const nextCards = cards.filter((card) => card.id !== cardId);
     saveGrammarCards(nextCards);
+  };
+
+  const handleDeleteAll = () => {
+    if (deleteConfirmation.trim() !== DELETE_CONFIRMATION_TEXT) {
+      return;
+    }
+
+    saveGrammarCards([]);
+    setEditingId(null);
+    setDraft(EMPTY_FORM);
+    setDeleteConfirmation('');
+    setIsDeleteAllDialogOpen(false);
   };
 
   const handleEditStart = (card: GrammarCard) => {
@@ -98,16 +116,78 @@ export default function GrammarBank() {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">文法庫</h2>
           <p className="text-xs text-slate-600 dark:text-slate-300 sm:text-sm">
-            可依等級、意思或範例句搜尋句型，並手動編輯／刪除／分類難易卡。
+            可依等級、意思、範例句或詳細說明搜尋句型，並在同一張卡片上編輯內容。
           </p>
         </div>
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder="搜尋文法點"
-          className="rounded-full border border-slate-300 bg-slate-50 px-4 py-2 text-sm outline-none ring-0 transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
-        />
+        <div className="flex flex-col gap-2 sm:items-end">
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="搜尋文法點"
+            className="rounded-full border border-slate-300 bg-slate-50 px-4 py-2 text-sm outline-none ring-0 transition focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+          />
+          <button
+            type="button"
+            disabled={cards.length === 0}
+            onClick={() => {
+              setDeleteConfirmation('');
+              setIsDeleteAllDialogOpen(true);
+            }}
+            className="rounded-full border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
+          >
+            刪除全部文法
+          </button>
+        </div>
       </div>
+
+      {isDeleteAllDialogOpen ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-all-title"
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              setDeleteConfirmation('');
+              setIsDeleteAllDialogOpen(false);
+            }
+          }}
+          className="mt-4 rounded-2xl border border-rose-300 bg-rose-50 p-4 dark:border-rose-900 dark:bg-rose-950/30"
+        >
+          <h3 id="delete-all-title" className="font-bold text-rose-900 dark:text-rose-200">
+            確定要刪除全部文法嗎？
+          </h3>
+          <p className="mt-1 text-sm text-rose-800 dark:text-rose-300">
+            這會清空目前裝置上的所有文法卡片，且無法復原。請輸入「{DELETE_CONFIRMATION_TEXT}」以確認。
+          </p>
+          <input
+            value={deleteConfirmation}
+            onChange={(event) => setDeleteConfirmation(event.target.value)}
+            placeholder={DELETE_CONFIRMATION_TEXT}
+            aria-label="刪除全部確認文字"
+            className="mt-3 w-full rounded-xl border border-rose-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-rose-500 dark:border-rose-800 dark:bg-slate-950 dark:text-slate-100"
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={deleteConfirmation.trim() !== DELETE_CONFIRMATION_TEXT}
+              onClick={handleDeleteAll}
+              className="rounded-full bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              確認刪除
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDeleteConfirmation('');
+                setIsDeleteAllDialogOpen(false);
+              }}
+              className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
         {filteredCards.map((card) => (
@@ -126,6 +206,17 @@ export default function GrammarBank() {
 
             {editingId === card.id ? (
               <div className="mt-3 space-y-2">
+                <select
+                  value={draft.level}
+                  onChange={(event) => setDraft((current) => ({ ...current, level: event.target.value }))}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <option>N5</option>
+                  <option>N4</option>
+                  <option>N3</option>
+                  <option>N2</option>
+                  <option>N1</option>
+                </select>
                 <input
                   value={draft.pattern}
                   onChange={(event) => setDraft((current) => ({ ...current, pattern: event.target.value }))}
@@ -149,6 +240,16 @@ export default function GrammarBank() {
                   rows={2}
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 />
+                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  <span>詳細說明</span>
+                  <textarea
+                    value={draft.specialNote}
+                    onChange={(event) => setDraft((current) => ({ ...current, specialNote: event.target.value }))}
+                    rows={4}
+                    placeholder="補充說明、常見錯誤、延伸用法"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                  />
+                </label>
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -170,6 +271,10 @@ export default function GrammarBank() {
               <>
                 <h3 className="mt-2 text-base font-bold text-slate-900 dark:text-white">{card.meaning}</h3>
                 <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{card.example}</p>
+                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-slate-600 dark:text-slate-300">
+                  <span className="font-semibold text-slate-700 dark:text-slate-200">詳細說明：</span>{' '}
+                  {card.specialNote || '未填寫'}
+                </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <Link
                     href="/practice"
@@ -221,6 +326,12 @@ export default function GrammarBank() {
           </article>
         ))}
       </div>
+
+      {filteredCards.length === 0 ? (
+        <p className="mt-4 rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
+          {cards.length === 0 ? '目前沒有文法卡片，請新增或從 GitHub 下載。' : '找不到符合搜尋條件的文法。'}
+        </p>
+      ) : null}
     </section>
   );
 }
