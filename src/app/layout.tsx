@@ -13,14 +13,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JLPT 文法 SRS",
-  description: "一個以 JLPT 文法與 SRS 復習為核心的現代化 Next.js 應用程式。",
+  title: "JLPT 文法複習",
+  description: "以 JLPT 文法與間隔重複複習為核心的學習工具。",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
+      lang="zh-Hant"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>

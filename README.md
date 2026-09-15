@@ -1,24 +1,24 @@
-# JLPT Grammar SRS
+# JLPT 文法複習工具
 
-A modern Next.js starter for a JLPT grammar formulaic system with an SRS-style practice mode.
+以間隔重複複習為核心的 JLPT 文法學習工具。
 
-## Run locally
+## 本機執行
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Routes
+## 路由
 
-- `/` — compact homepage with swipe-based flashcard practice, card management, and sync tools
-- `/practice` — compatibility redirect to the practice section on the homepage
+- `/` — 緊湊首頁，包含滑動式卡片複習、卡片管理與同步工具
+- `/practice` — 相容性轉址，會前往首頁的複習區
 
-## Main stack
+## 技術架構
 
 - Next.js App Router
 - TypeScript
 - Tailwind CSS
 - Framer Motion
 - ts-fsrs
-- TinaCMS-ready content structure
+- 可搭配 TinaCMS 的內容結構

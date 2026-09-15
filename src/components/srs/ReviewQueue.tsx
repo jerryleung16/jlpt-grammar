@@ -1,7 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { getStoredGrammarCards, saveGrammarCards, type GrammarCard } from '@/lib/grammar-data';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  getGrammarCardDraft,
+  getStoredGrammarCards,
+  saveGrammarCards,
+  updateGrammarCard,
+  type GrammarCard,
+  type GrammarCardDraft,
+} from '@/lib/grammar-data';
+import InlineGrammarEditor from '@/components/grammar/InlineGrammarEditor';
+import { getGithubSyncConfig, uploadGrammarCardsToGithub } from '@/lib/github-sync';
 import SwipeableCard from '@/components/srs/SwipeableCard';
 
 type ReviewPile = 'all' | 'untagged' | 'easy' | 'difficult';
@@ -28,14 +37,14 @@ function getLabel(card: GrammarCard): Exclude<ReviewPile, 'all'> {
 
 function getLabelText(label: Exclude<ReviewPile, 'all'>): string {
   if (label === 'easy') {
-    return 'I know';
+    return '已掌握';
   }
 
   if (label === 'difficult') {
-    return "I don't know";
+    return '未掌握';
   }
 
-  return 'Unlabelled';
+  return '未標籤';
 }
 
 function shuffleCardIds(cards: GrammarCard[]): string[] {
@@ -55,6 +64,12 @@ export default function ReviewQueue() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [pile, setPile] = useState<ReviewPile>('untagged');
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<GrammarCardDraft | null>(null);
+  const [isBackingUp, setIsBackingUp] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+  const [syncNeedsConfig, setSyncNeedsConfig] = useState(false);
 
   useEffect(() => {
     const refreshQueue = () => {
@@ -125,21 +140,21 @@ export default function ReviewQueue() {
     return filteredQueue[activeIndex % filteredQueue.length];
   }, [activeIndex, filteredQueue]);
 
-  const handleAdvance = () => {
+  const handleAdvance = useCallback(() => {
     if (filteredQueue.length === 0) {
       return;
     }
 
     setActiveIndex((current) => (current + 1) % filteredQueue.length);
-  };
+  }, [filteredQueue.length]);
 
-  const handlePrevious = () => {
+  const handlePrevious = useCallback(() => {
     if (filteredQueue.length === 0) {
       return;
     }
 
     setActiveIndex((current) => (current - 1 + filteredQueue.length) % filteredQueue.length);
-  };
+  }, [filteredQueue.length]);
 
   const toggleLevel = (level: string) => {
     setSelectedLevels((current) =>
@@ -168,13 +183,16 @@ export default function ReviewQueue() {
   };
 
   const handleClearAllLabels = () => {
-    const hasAnyLabel = queue.some((card) => card.difficultyGroup === 'easy' || card.difficultyGroup === 'difficult');
+    const latestCards = getStoredGrammarCards();
+    const hasAnyLabel = latestCards.some(
+      (card) => card.difficultyGroup === 'easy' || card.difficultyGroup === 'difficult',
+    );
 
     if (!hasAnyLabel) {
       return;
     }
 
-    const nextCards = queue.map((card) => ({
+    const nextCards = latestCards.map((card) => ({
       ...card,
       difficultyGroup: undefined,
     }));
@@ -184,7 +202,7 @@ export default function ReviewQueue() {
     setActiveIndex(0);
   };
 
-  const handleLabelCard = (nextLabel: Exclude<ReviewPile, 'all'>) => {
+  const handleLabelCard = useCallback((nextLabel: Exclude<ReviewPile, 'all'>) => {
     if (!activeCard) {
       return;
     }
@@ -192,7 +210,8 @@ export default function ReviewQueue() {
     const nextDifficultyGroup: GrammarCard['difficultyGroup'] =
       nextLabel === 'easy' ? 'easy' : nextLabel === 'difficult' ? 'difficult' : undefined;
 
-    const nextCards = queue.map((card) =>
+    const latestCards = getStoredGrammarCards();
+    const nextCards = latestCards.map((card) =>
       card.id === activeCard.id
         ? {
             ...card,
@@ -203,7 +222,88 @@ export default function ReviewQueue() {
 
     saveGrammarCards(nextCards);
     handleAdvance();
+  }, [activeCard, handleAdvance]);
+
+  const handleStartEdit = useCallback(() => {
+    if (!activeCard) {
+      return;
+    }
+
+    const currentCard = getStoredGrammarCards().find((card) => card.id === activeCard.id) ?? activeCard;
+    setEditingCardId(currentCard.id);
+    setEditDraft(getGrammarCardDraft(currentCard));
+  }, [activeCard]);
+
+  const handleCancelEdit = () => {
+    setEditingCardId(null);
+    setEditDraft(null);
   };
+
+  const handleSaveEdit = (moveToNext = false) => {
+    if (!editingCardId || !editDraft) {
+      return;
+    }
+
+    const latestCards = getStoredGrammarCards();
+    const nextCards = latestCards.map((card) =>
+      card.id === editingCardId ? updateGrammarCard(card, editDraft) : card,
+    );
+
+    saveGrammarCards(nextCards);
+    handleCancelEdit();
+
+    if (moveToNext) {
+      handleAdvance();
+    }
+  };
+
+  const handleQuickBackup = useCallback(async () => {
+    setIsBackingUp(true);
+    setSyncMessage('');
+    setSyncNeedsConfig(false);
+
+    try {
+      const result = await uploadGrammarCardsToGithub();
+      setLastSyncedAt(new Date().toLocaleTimeString('zh-Hant', { hour: '2-digit', minute: '2-digit' }));
+      setSyncMessage(`已備份至 GitHub，Gist 識別碼：${result.gistId}`);
+    } catch (error) {
+      setSyncNeedsConfig(!getGithubSyncConfig().token.trim());
+      setSyncMessage(error instanceof Error ? error.message : 'GitHub 備份失敗。');
+    } finally {
+      setIsBackingUp(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleKeyboardShortcut = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.matches('input, textarea, select, button')) {
+        return;
+      }
+
+      if (event.key === ' ') {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent('swipeable-card-toggle'));
+      } else if (event.key === 'ArrowLeft') {
+        handlePrevious();
+      } else if (event.key === 'ArrowRight') {
+        handleAdvance();
+      } else if (event.key === '1') {
+        handleLabelCard('easy');
+      } else if (event.key === '2') {
+        handleLabelCard('difficult');
+      } else if (event.key === '0') {
+        handleLabelCard('untagged');
+      } else if (event.key.toLowerCase() === 'e') {
+        handleStartEdit();
+      } else if (event.key.toLowerCase() === 's') {
+        void handleQuickBackup();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyboardShortcut);
+    return () => window.removeEventListener('keydown', handleKeyboardShortcut);
+  }, [activeCard, handleAdvance, handleLabelCard, handlePrevious, handleQuickBackup, handleStartEdit]);
 
   return (
     <div className="space-y-4">
@@ -211,31 +311,31 @@ export default function ReviewQueue() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-500 dark:text-slate-400">
-              review statistics
+              複習統計
             </p>
             <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">複習統計</h3>
           </div>
           <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white dark:bg-blue-500">
-            Total {reviewStats.total}
+            總卡數 {reviewStats.total}
           </span>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-800/60">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">
-              Unlabelled
+              未標籤
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{reviewStats.untagged}</p>
           </div>
           <div className="rounded-2xl bg-emerald-50 p-3 dark:bg-emerald-950/40">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">
-              I know
+              已掌握
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{reviewStats.easy}</p>
           </div>
           <div className="rounded-2xl bg-rose-50 p-3 dark:bg-rose-950/40">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
-              I don&apos;t know
+              未掌握
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{reviewStats.difficult}</p>
           </div>
@@ -244,10 +344,10 @@ export default function ReviewQueue() {
           <div className="mt-4 overflow-x-auto">
             <div className="min-w-[34rem] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
               <div className="grid grid-cols-[4rem_repeat(3,minmax(0,1fr))] bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                <div className="px-3 py-2">Level</div>
-                <div className="px-3 py-2 text-center">Unlabelled</div>
-                <div className="px-3 py-2 text-center">I know</div>
-                <div className="px-3 py-2 text-center">I don&apos;t know</div>
+                <div className="px-3 py-2">等級</div>
+                <div className="px-3 py-2 text-center">未標籤</div>
+                <div className="px-3 py-2 text-center">已掌握</div>
+                <div className="px-3 py-2 text-center">未掌握</div>
               </div>
               {levelStats.map((stat) => (
                 <div
@@ -267,8 +367,8 @@ export default function ReviewQueue() {
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>
-            Current pile: {pile === 'all' ? 'All' : getLabelText(pile)} · Levels:
-            {selectedLevels.length === 0 ? 'All' : selectedLevels.join(', ')}
+            目前分類：{pile === 'all' ? '全部' : getLabelText(pile)} · 等級：
+            {selectedLevels.length === 0 ? '全部' : selectedLevels.join('、')}
           </span>
           <div className="flex flex-wrap gap-2">
             <button
@@ -313,10 +413,10 @@ export default function ReviewQueue() {
 
         <div className="flex flex-wrap gap-2">
             {[
-            { key: 'all', label: 'All' },
-            { key: 'untagged', label: 'Unlabelled' },
-            { key: 'easy', label: 'I know' },
-            { key: 'difficult', label: "I don't know" },
+            { key: 'all', label: '全部' },
+            { key: 'untagged', label: '未標籤' },
+            { key: 'easy', label: '已掌握' },
+            { key: 'difficult', label: '未掌握' },
           ].map((option) => (
             <button
               key={option.key}
@@ -336,10 +436,10 @@ export default function ReviewQueue() {
         <div className="rounded-2xl bg-slate-50/80 p-3 dark:bg-slate-800/50">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-xs font-bold uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">
-              level filter
+              等級篩選
             </span>
             <span className="text-xs text-slate-600 dark:text-slate-300">
-              {selectedLevels.length === 0 ? 'All levels' : `${selectedLevels.length} levels`}
+              {selectedLevels.length === 0 ? '全部等級' : `${selectedLevels.length} 個等級`}
             </span>
           </div>
 
@@ -369,45 +469,112 @@ export default function ReviewQueue() {
             <span className="ml-1 font-semibold text-slate-900 dark:text-white">{getLabelText(getLabel(activeCard))}</span>
           </div>
 
-          <SwipeableCard
-            key={`${activeCard.id}-${activeCard.pattern}`}
-            frontText={activeCard.frontText}
-            meaning={activeCard.meaning}
-            connection={activeCard.connection}
-            example={activeCard.example}
-            specialNote={activeCard.specialNote}
-          />
+          <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur lg:hidden dark:border-slate-800 dark:bg-slate-900/95">
+            <button
+              type="button"
+              onClick={handleStartEdit}
+              className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white dark:bg-blue-500"
+            >
+              編輯卡片
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleQuickBackup()}
+              disabled={isBackingUp}
+              aria-busy={isBackingUp}
+              className="rounded-xl border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-800 dark:text-blue-200"
+            >
+              {isBackingUp ? '備份中……' : '備份至 GitHub'}
+            </button>
+          </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-            <p className="text-sm text-slate-600 dark:text-slate-300">用按鈕標記卡片，點擊後會自動前往下一張。</p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={() => handleLabelCard('untagged')}
-                className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-              >
-                標記為未標籤
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLabelCard('easy')}
-                className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
-              >
-                標記為易卡
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLabelCard('difficult')}
-                className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 transition hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
-              >
-                標記為難卡
-              </button>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+            <SwipeableCard
+              key={`${activeCard.id}-${activeCard.pattern}`}
+              frontText={activeCard.frontText}
+              meaning={activeCard.meaning}
+              connection={activeCard.connection}
+              example={activeCard.example}
+              specialNote={activeCard.specialNote}
+            />
+
+            <div className="space-y-4 lg:sticky lg:top-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handleStartEdit}
+                    className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white dark:bg-blue-500"
+                  >
+                    編輯卡片
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleQuickBackup()}
+                    disabled={isBackingUp}
+                    aria-busy={isBackingUp}
+                    className="rounded-xl border border-blue-300 px-3 py-2 text-sm font-semibold text-blue-800 transition hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-blue-800 dark:text-blue-200 dark:hover:bg-blue-950/40"
+                  >
+                    {isBackingUp ? '備份中……' : '備份至 GitHub'}
+                  </button>
+                </div>
+                {lastSyncedAt ? (
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">上次備份：{lastSyncedAt}</p>
+                ) : null}
+                {syncMessage ? (
+                  <div aria-live="polite" className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
+                    <p>{syncMessage}</p>
+                    {syncNeedsConfig ? (
+                      <a href="#github-sync" className="mt-1 inline-block font-semibold underline">
+                        前往 GitHub 設定
+                      </a>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+
+              {editingCardId === activeCard.id && editDraft ? (
+                <InlineGrammarEditor
+                  draft={editDraft}
+                  onChange={setEditDraft}
+                  onSave={() => handleSaveEdit()}
+                  onSaveAndNext={() => handleSaveEdit(true)}
+                  onCancel={handleCancelEdit}
+                />
+              ) : (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                  <p className="text-sm text-slate-600 dark:text-slate-300">用按鈕標記卡片，完成後會自動前往下一張。</p>
+                  <div className="mt-3 grid gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleLabelCard('untagged')}
+                      className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                    >
+                      標記為未標籤
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLabelCard('easy')}
+                      className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
+                    >
+                      標記為已掌握
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleLabelCard('difficult')}
+                      className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 transition hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                    >
+                      標記為未掌握
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </>
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
-          {queue.length === 0 ? 'No grammar cards available.' : 'No cards match the current filters.'}
+          {queue.length === 0 ? '目前沒有文法卡片。' : '沒有符合目前篩選條件的卡片。'}
         </div>
       )}
     </div>

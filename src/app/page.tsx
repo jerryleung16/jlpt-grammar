@@ -8,7 +8,7 @@ export default function Home() {
     <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 py-6 sm:px-6 lg:px-8">
       <header className="mb-5 flex flex-col gap-2 border-b border-slate-200 pb-5 dark:border-slate-800 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-500">JLPT Grammar</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-blue-500">JLPT 文法</p>
           <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 dark:text-white">
             文法練習
           </h1>
@@ -17,7 +17,7 @@ export default function Home() {
           </p>
         </div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-          Practice first
+          先複習，再整理
         </p>
       </header>
 

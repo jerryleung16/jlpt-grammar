@@ -2,9 +2,17 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { getStoredGrammarCards, saveGrammarCards, type DifficultyGroup, type GrammarCard } from '@/lib/grammar-data';
+import {
+  getGrammarCardDraft,
+  getStoredGrammarCards,
+  saveGrammarCards,
+  updateGrammarCard,
+  type DifficultyGroup,
+  type GrammarCard,
+  type GrammarCardDraft,
+} from '@/lib/grammar-data';
 
-const EMPTY_FORM = {
+const EMPTY_FORM: GrammarCardDraft = {
   level: 'N5',
   pattern: '',
   meaning: '',
@@ -67,32 +75,13 @@ export default function GrammarBank() {
     const currentCard = getStoredGrammarCards().find((storedCard) => storedCard.id === card.id) ?? card;
 
     setEditingId(currentCard.id);
-    setDraft({
-      level: currentCard.level,
-      pattern: currentCard.pattern,
-      meaning: currentCard.meaning,
-      connection: currentCard.connection,
-      example: currentCard.example,
-      specialNote: currentCard.specialNote,
-    });
+    setDraft(getGrammarCardDraft(currentCard));
   };
 
   const handleSaveEdit = (cardId: string) => {
     const latestCards = getStoredGrammarCards();
     const nextCards = latestCards.map((card) =>
-      card.id === cardId
-        ? {
-            ...card,
-            level: draft.level,
-            pattern: draft.pattern,
-            meaning: draft.meaning,
-            connection: draft.connection,
-            example: draft.example,
-            specialNote: draft.specialNote,
-            frontText: draft.pattern,
-            backExplanation: `${draft.meaning}｜${draft.connection}｜${draft.example}`,
-          }
-        : card,
+      card.id === cardId ? updateGrammarCard(card, draft) : card,
     );
 
     saveGrammarCards(nextCards);

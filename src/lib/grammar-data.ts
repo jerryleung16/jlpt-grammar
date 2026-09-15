@@ -13,6 +13,31 @@ export type GrammarCard = {
   difficultyGroup?: DifficultyGroup;
 };
 
+export type GrammarCardDraft = Pick<
+  GrammarCard,
+  'level' | 'pattern' | 'meaning' | 'connection' | 'example' | 'specialNote'
+>;
+
+export function getGrammarCardDraft(card: GrammarCard): GrammarCardDraft {
+  return {
+    level: card.level,
+    pattern: card.pattern,
+    meaning: card.meaning,
+    connection: card.connection,
+    example: card.example,
+    specialNote: card.specialNote,
+  };
+}
+
+export function updateGrammarCard(card: GrammarCard, draft: GrammarCardDraft): GrammarCard {
+  return {
+    ...card,
+    ...draft,
+    frontText: draft.pattern,
+    backExplanation: `${draft.meaning}｜${draft.connection}｜${draft.example}`,
+  };
+}
+
 const DEFAULT_GRAMMAR_CARDS: GrammarCard[] = [
   {
     id: "n5-1",

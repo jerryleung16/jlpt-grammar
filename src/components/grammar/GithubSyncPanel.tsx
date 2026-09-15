@@ -1,70 +1,23 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
-import { getStoredGrammarCards, saveGrammarCards } from '@/lib/grammar-data';
-
-const TOKEN_STORAGE_KEY = 'jlpt-sync-github-token';
-const GIST_ID_STORAGE_KEY = 'jlpt-sync-gist-id';
-const SYNC_FILENAME = 'jlpt-grammar-sync.json';
-
-type SyncPayload = {
-  version: 1;
-  updatedAt: string;
-  cards: ReturnType<typeof getStoredGrammarCards>;
-};
-
-type GistFile = {
-  content?: string;
-};
-
-type GistResponse = {
-  id: string;
-  files?: Record<string, GistFile>;
-};
-
-async function githubRequest<T>(
-  token: string,
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
-  const response = await fetch(`https://api.github.com${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `GitHub API error: ${response.status}`);
-  }
-
-  return (await response.json()) as T;
-}
+import { FormEvent, useState } from 'react';
+import {
+  downloadGrammarCardsFromGithub,
+  getGithubSyncConfig,
+  saveGithubSyncConfig,
+  uploadGrammarCardsToGithub,
+} from '@/lib/github-sync';
 
 export default function GithubSyncPanel() {
   const [token, setToken] = useState(() => {
-    if (typeof window === 'undefined') {
-      return '';
-    }
-
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY) ?? '';
+    return getGithubSyncConfig().token;
   });
   const [gistId, setGistId] = useState(() => {
-    if (typeof window === 'undefined') {
-      return '';
-    }
-
-    return window.localStorage.getItem(GIST_ID_STORAGE_KEY) ?? '';
+    return getGithubSyncConfig().gistId;
   });
   const [isSaving, setIsSaving] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [message, setMessage] = useState('');
-
-  const canSync = useMemo(() => token.trim().length > 0, [token]);
 
   const handleSaveConfig = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -73,58 +26,18 @@ export default function GithubSyncPanel() {
       return;
     }
 
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, token.trim());
-    window.localStorage.setItem(GIST_ID_STORAGE_KEY, gistId.trim());
+    saveGithubSyncConfig({ token, gistId });
     setMessage('已儲存同步設定。');
   };
 
   const handleUpload = async () => {
-    if (!canSync) {
-      setMessage('請先填入 GitHub Token。');
-      return;
-    }
-
     setIsSaving(true);
     setMessage('');
 
     try {
-      const payload: SyncPayload = {
-        version: 1,
-        updatedAt: new Date().toISOString(),
-        cards: getStoredGrammarCards(),
-      };
-
-      const body = {
-        files: {
-          [SYNC_FILENAME]: {
-            content: JSON.stringify(payload, null, 2),
-          },
-        },
-      };
-
-      const trimmedGistId = gistId.trim();
-      if (trimmedGistId) {
-        await githubRequest<GistResponse>(token.trim(), `/gists/${trimmedGistId}`, {
-          method: 'PATCH',
-          body: JSON.stringify(body),
-        });
-        setMessage('已上傳到既有 Gist，同步完成。');
-      } else {
-        const created = await githubRequest<GistResponse>(token.trim(), '/gists', {
-          method: 'POST',
-          body: JSON.stringify({
-            ...body,
-            description: 'JLPT grammar app sync data',
-            public: false,
-          }),
-        });
-
-        setGistId(created.id);
-        if (typeof window !== 'undefined') {
-          window.localStorage.setItem(GIST_ID_STORAGE_KEY, created.id);
-        }
-        setMessage(`已建立同步 Gist，ID: ${created.id}`);
-      }
+      const result = await uploadGrammarCardsToGithub(undefined, { token, gistId });
+      setGistId(result.gistId);
+      setMessage(`已備份至 GitHub，Gist 識別碼：${result.gistId}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '同步失敗';
       setMessage(`上傳失敗：${errorMessage}`);
@@ -134,35 +47,11 @@ export default function GithubSyncPanel() {
   };
 
   const handleDownload = async () => {
-    if (!canSync) {
-      setMessage('請先填入 GitHub Token。');
-      return;
-    }
-
-    if (!gistId.trim()) {
-      setMessage('請先填入 Gist ID，或先執行一次上傳建立 Gist。');
-      return;
-    }
-
     setIsSyncing(true);
     setMessage('');
 
     try {
-      const gist = await githubRequest<GistResponse>(token.trim(), `/gists/${gistId.trim()}`);
-      const file = gist.files?.[SYNC_FILENAME];
-
-      if (!file?.content) {
-        setMessage('找不到同步檔案內容，請先在另一台裝置上傳。');
-        return;
-      }
-
-      const parsed = JSON.parse(file.content) as Partial<SyncPayload>;
-      if (!Array.isArray(parsed.cards)) {
-        setMessage('同步檔案格式不正確。');
-        return;
-      }
-
-      saveGrammarCards(parsed.cards);
+      await downloadGrammarCardsFromGithub({ token, gistId });
       setMessage('已從 GitHub 下載並套用最新文法卡片。');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '同步失敗';
@@ -173,19 +62,19 @@ export default function GithubSyncPanel() {
   };
 
   return (
-    <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <section id="github-sync" className="mt-6 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 dark:text-white">跨裝置同步</h2>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            用 GitHub Token + Gist 在不同裝置同步文法卡片資料。
+            使用 GitHub 存取權杖驗證，並透過私人 Gist 在不同裝置同步文法卡片資料。
           </p>
         </div>
       </div>
 
       <form onSubmit={handleSaveConfig} className="mt-4 grid gap-3 md:grid-cols-2">
         <label className="space-y-1 text-sm text-slate-700 dark:text-slate-200 md:col-span-2">
-          <span>GitHub Token</span>
+          <span>GitHub 存取權杖</span>
           <input
             type="password"
             value={token}
@@ -196,7 +85,7 @@ export default function GithubSyncPanel() {
         </label>
 
         <label className="space-y-1 text-sm text-slate-700 dark:text-slate-200">
-          <span>Gist ID（首次可留空）</span>
+          <span>Gist 識別碼（首次可留空）</span>
           <input
             value={gistId}
             onChange={(event) => setGistId(event.target.value)}
@@ -222,7 +111,7 @@ export default function GithubSyncPanel() {
           onClick={handleUpload}
           className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:hover:bg-blue-400"
         >
-          {isSaving ? '上傳中...' : '上傳到 GitHub'}
+          {isSaving ? '上傳中……' : '上傳至 GitHub'}
         </button>
         <button
           type="button"
@@ -230,7 +119,7 @@ export default function GithubSyncPanel() {
           onClick={handleDownload}
           className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
         >
-          {isSyncing ? '下載中...' : '從 GitHub 下載'}
+          {isSyncing ? '下載中……' : '從 GitHub 下載'}
         </button>
       </div>
 

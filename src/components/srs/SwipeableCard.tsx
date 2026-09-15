@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 type SwipeableCardProps = {
   frontText: string;
@@ -18,6 +18,12 @@ export default function SwipeableCard({
   specialNote = '—',
 }: SwipeableCardProps) {
   const [isFlipped, setIsFlipped] = useState(false);
+
+  useEffect(() => {
+    const toggleCard = () => setIsFlipped((current) => !current);
+    window.addEventListener('swipeable-card-toggle', toggleCard);
+    return () => window.removeEventListener('swipeable-card-toggle', toggleCard);
+  }, []);
 
   return (
     <section className="flex flex-col items-center justify-center gap-4">
