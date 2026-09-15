@@ -64,19 +64,22 @@ export default function GrammarBank() {
   };
 
   const handleEditStart = (card: GrammarCard) => {
-    setEditingId(card.id);
+    const currentCard = getStoredGrammarCards().find((storedCard) => storedCard.id === card.id) ?? card;
+
+    setEditingId(currentCard.id);
     setDraft({
-      level: card.level,
-      pattern: card.pattern,
-      meaning: card.meaning,
-      connection: card.connection,
-      example: card.example,
-      specialNote: card.specialNote,
+      level: currentCard.level,
+      pattern: currentCard.pattern,
+      meaning: currentCard.meaning,
+      connection: currentCard.connection,
+      example: currentCard.example,
+      specialNote: currentCard.specialNote,
     });
   };
 
   const handleSaveEdit = (cardId: string) => {
-    const nextCards = cards.map((card) =>
+    const latestCards = getStoredGrammarCards();
+    const nextCards = latestCards.map((card) =>
       card.id === cardId
         ? {
             ...card,
@@ -98,7 +101,8 @@ export default function GrammarBank() {
   };
 
   const handleDifficultyGroupChange = (cardId: string, nextGroup: DifficultyGroup) => {
-    const nextCards = cards.map((card) =>
+    const latestCards = getStoredGrammarCards();
+    const nextCards = latestCards.map((card) =>
       card.id === cardId
         ? {
             ...card,
@@ -277,7 +281,7 @@ export default function GrammarBank() {
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   <Link
-                    href="/practice"
+                    href="/#practice"
                     className="inline-flex rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     練習這張卡片

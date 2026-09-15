@@ -11,8 +11,8 @@ npm run dev
 
 ## Routes
 
-- `/` — landing page
-- `/practice` — swipe-based flashcard practice view
+- `/` — compact homepage with swipe-based flashcard practice, card management, and sync tools
+- `/practice` — compatibility redirect to the practice section on the homepage
 
 ## Main stack
 

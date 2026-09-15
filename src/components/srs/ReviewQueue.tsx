@@ -5,7 +5,14 @@ import { getStoredGrammarCards, saveGrammarCards, type GrammarCard } from '@/lib
 import SwipeableCard from '@/components/srs/SwipeableCard';
 
 type ReviewPile = 'all' | 'untagged' | 'easy' | 'difficult';
-const LEVEL_OPTIONS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const;
+const LEVEL_OPTIONS = ['N1', 'N2', 'N3', 'N4', 'N5'] as const;
+
+type LevelStat = {
+  level: (typeof LEVEL_OPTIONS)[number];
+  untagged: number;
+  easy: number;
+  difficult: number;
+};
 
 function getLabel(card: GrammarCard): Exclude<ReviewPile, 'all'> {
   if (card.difficultyGroup === 'easy') {
@@ -21,14 +28,14 @@ function getLabel(card: GrammarCard): Exclude<ReviewPile, 'all'> {
 
 function getLabelText(label: Exclude<ReviewPile, 'all'>): string {
   if (label === 'easy') {
-    return '易卡';
+    return 'I know';
   }
 
   if (label === 'difficult') {
-    return '難卡';
+    return "I don't know";
   }
 
-  return '未標籤';
+  return 'Unlabelled';
 }
 
 function shuffleCardIds(cards: GrammarCard[]): string[] {
@@ -46,8 +53,8 @@ export default function ReviewQueue() {
   const [queue, setQueue] = useState<GrammarCard[]>([]);
   const [shuffleOrder, setShuffleOrder] = useState<string[] | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [pile, setPile] = useState<ReviewPile>('all');
-  const [selectedLevels, setSelectedLevels] = useState<string[]>([...LEVEL_OPTIONS]);
+  const [pile, setPile] = useState<ReviewPile>('untagged');
+  const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
 
   useEffect(() => {
     const refreshQueue = () => {
@@ -76,6 +83,21 @@ export default function ReviewQueue() {
     };
   }, [queue]);
 
+  const levelStats = useMemo<LevelStat[]>(
+    () =>
+      LEVEL_OPTIONS.map((level) => {
+        const cardsAtLevel = queue.filter((card) => card.level === level);
+
+        return {
+          level,
+          untagged: cardsAtLevel.filter((card) => getLabel(card) === 'untagged').length,
+          easy: cardsAtLevel.filter((card) => getLabel(card) === 'easy').length,
+          difficult: cardsAtLevel.filter((card) => getLabel(card) === 'difficult').length,
+        };
+      }),
+    [queue],
+  );
+
   const orderedQueue = useMemo(() => {
     if (!shuffleOrder) {
       return queue;
@@ -92,7 +114,7 @@ export default function ReviewQueue() {
 
   const filteredQueue = useMemo(() => {
     const byPile = pile === 'all' ? orderedQueue : orderedQueue.filter((card) => getLabel(card) === pile);
-    return byPile.filter((card) => selectedLevels.includes(card.level));
+    return byPile.filter((card) => selectedLevels.length === 0 || selectedLevels.includes(card.level));
   }, [orderedQueue, pile, selectedLevels]);
 
   const activeCard = useMemo(() => {
@@ -158,7 +180,7 @@ export default function ReviewQueue() {
     }));
 
     saveGrammarCards(nextCards);
-    setPile('all');
+    setPile('untagged');
     setActiveIndex(0);
   };
 
@@ -194,37 +216,59 @@ export default function ReviewQueue() {
             <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">複習統計</h3>
           </div>
           <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white dark:bg-blue-500">
-            總卡數 {reviewStats.total}
+            Total {reviewStats.total}
           </span>
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl bg-slate-100 p-3 dark:bg-slate-800/60">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">
-              未標籤
+              Unlabelled
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{reviewStats.untagged}</p>
           </div>
           <div className="rounded-2xl bg-emerald-50 p-3 dark:bg-emerald-950/40">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">
-              易卡
+              I know
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{reviewStats.easy}</p>
           </div>
           <div className="rounded-2xl bg-rose-50 p-3 dark:bg-rose-950/40">
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-700 dark:text-rose-300">
-              難卡
+              I don&apos;t know
             </p>
             <p className="mt-1 text-2xl font-black text-slate-900 dark:text-white">{reviewStats.difficult}</p>
           </div>
         </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <div className="min-w-[34rem] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
+              <div className="grid grid-cols-[4rem_repeat(3,minmax(0,1fr))] bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <div className="px-3 py-2">Level</div>
+                <div className="px-3 py-2 text-center">Unlabelled</div>
+                <div className="px-3 py-2 text-center">I know</div>
+                <div className="px-3 py-2 text-center">I don&apos;t know</div>
+              </div>
+              {levelStats.map((stat) => (
+                <div
+                  key={stat.level}
+                  className="grid grid-cols-[4rem_repeat(3,minmax(0,1fr))] border-t border-slate-200 text-sm dark:border-slate-700"
+                >
+                  <div className="px-3 py-2 font-bold text-slate-900 dark:text-white">{stat.level}</div>
+                  <div className="px-3 py-2 text-center text-slate-600 dark:text-slate-300">{stat.untagged}</div>
+                  <div className="px-3 py-2 text-center text-emerald-700 dark:text-emerald-300">{stat.easy}</div>
+                  <div className="px-3 py-2 text-center text-rose-700 dark:text-rose-300">{stat.difficult}</div>
+                </div>
+              ))}
+            </div>
+          </div>
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span>
-            目前牌組：{pile === 'all' ? '全部' : pile === 'untagged' ? '未標籤' : pile === 'easy' ? '易卡' : '難卡'} · 等級：
-            {selectedLevels.length === LEVEL_OPTIONS.length ? '全部' : selectedLevels.join('、') || '無'}
+            Current pile: {pile === 'all' ? 'All' : getLabelText(pile)} · Levels:
+            {selectedLevels.length === 0 ? 'All' : selectedLevels.join(', ')}
           </span>
           <div className="flex flex-wrap gap-2">
             <button
@@ -268,11 +312,11 @@ export default function ReviewQueue() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {[
-            { key: 'all', label: '全部' },
-            { key: 'untagged', label: '未標籤' },
-            { key: 'easy', label: '易卡' },
-            { key: 'difficult', label: '難卡' },
+            {[
+            { key: 'all', label: 'All' },
+            { key: 'untagged', label: 'Unlabelled' },
+            { key: 'easy', label: 'I know' },
+            { key: 'difficult', label: "I don't know" },
           ].map((option) => (
             <button
               key={option.key}
@@ -295,7 +339,7 @@ export default function ReviewQueue() {
               level filter
             </span>
             <span className="text-xs text-slate-600 dark:text-slate-300">
-              {selectedLevels.length === LEVEL_OPTIONS.length ? '全部開啟' : `${selectedLevels.length} 個等級`}
+              {selectedLevels.length === 0 ? 'All levels' : `${selectedLevels.length} levels`}
             </span>
           </div>
 
@@ -361,7 +405,11 @@ export default function ReviewQueue() {
             </div>
           </div>
         </>
-      ) : null}
+      ) : (
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
+          {queue.length === 0 ? 'No grammar cards available.' : 'No cards match the current filters.'}
+        </div>
+      )}
     </div>
   );
 }
