@@ -8,7 +8,6 @@ type InlineGrammarEditorProps = {
   onChange: (draft: GrammarCardDraft) => void;
   onSave: () => void;
   onSaveAndNext?: () => void;
-  onCancel: () => void;
 };
 
 const LEVEL_OPTIONS = ['N1', 'N2', 'N3', 'N4', 'N5'];
@@ -18,17 +17,12 @@ export default function InlineGrammarEditor({
   onChange,
   onSave,
   onSaveAndNext,
-  onCancel,
 }: InlineGrammarEditorProps) {
   const updateField = <Field extends keyof GrammarCardDraft>(field: Field, value: GrammarCardDraft[Field]) => {
     onChange({ ...draft, [field]: value });
   };
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'Escape') {
-      onCancel();
-    }
-
     if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
       event.preventDefault();
       onSave();
@@ -36,25 +30,8 @@ export default function InlineGrammarEditor({
   };
 
   return (
-    <div
-      className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-900 dark:bg-blue-950/30"
-      onKeyDown={handleKeyDown}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-700 dark:text-blue-300">快速編輯</p>
-          <h3 className="mt-1 text-lg font-bold text-slate-900 dark:text-white">編輯目前卡片</h3>
-        </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
-        >
-          取消
-        </button>
-      </div>
-
-      <div className="mt-3 grid gap-2">
+    <div onKeyDown={handleKeyDown}>
+      <div className="grid gap-3">
         <label className="space-y-1 text-xs font-semibold text-slate-700 dark:text-slate-200">
           <span>等級</span>
           <select
@@ -111,7 +88,7 @@ export default function InlineGrammarEditor({
         </label>
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <button
           type="button"
           onClick={onSave}
@@ -129,7 +106,7 @@ export default function InlineGrammarEditor({
           </button>
         ) : null}
       </div>
-      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">按 Ctrl/Cmd + Enter 儲存，按 Esc 取消。</p>
+      <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">按 Ctrl/Cmd + Enter 儲存，按 Esc 關閉視窗。</p>
     </div>
   );
 }

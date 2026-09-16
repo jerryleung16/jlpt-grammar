@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import GrammarEditModal from '@/components/grammar/GrammarEditModal';
 import {
   getGrammarCardDraft,
   getStoredGrammarCards,
@@ -28,6 +29,7 @@ export default function GrammarBank() {
   const [cards, setCards] = useState<GrammarCard[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState(EMPTY_FORM);
+  const [editTriggerElement, setEditTriggerElement] = useState<HTMLElement | null>(null);
   const [isDeleteAllDialogOpen, setIsDeleteAllDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
@@ -67,15 +69,17 @@ export default function GrammarBank() {
     saveGrammarCards([]);
     setEditingId(null);
     setDraft(EMPTY_FORM);
+    setEditTriggerElement(null);
     setDeleteConfirmation('');
     setIsDeleteAllDialogOpen(false);
   };
 
-  const handleEditStart = (card: GrammarCard) => {
+  const handleEditStart = (card: GrammarCard, triggerElement?: HTMLElement) => {
     const currentCard = getStoredGrammarCards().find((storedCard) => storedCard.id === card.id) ?? card;
 
     setEditingId(currentCard.id);
     setDraft(getGrammarCardDraft(currentCard));
+    setEditTriggerElement(triggerElement ?? null);
   };
 
   const handleSaveEdit = (cardId: string) => {
@@ -87,7 +91,14 @@ export default function GrammarBank() {
     saveGrammarCards(nextCards);
     setEditingId(null);
     setDraft(EMPTY_FORM);
+    setEditTriggerElement(null);
   };
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingId(null);
+    setDraft(EMPTY_FORM);
+    setEditTriggerElement(null);
+  }, []);
 
   const handleDifficultyGroupChange = (cardId: string, nextGroup: DifficultyGroup) => {
     const latestCards = getStoredGrammarCards();
@@ -197,125 +208,58 @@ export default function GrammarBank() {
               </span>
             </div>
 
-            {editingId === card.id ? (
-              <div className="mt-3 space-y-2">
-                <select
-                  value={draft.level}
-                  onChange={(event) => setDraft((current) => ({ ...current, level: event.target.value }))}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                >
-                  <option>N5</option>
-                  <option>N4</option>
-                  <option>N3</option>
-                  <option>N2</option>
-                  <option>N1</option>
-                </select>
-                <input
-                  value={draft.pattern}
-                  onChange={(event) => setDraft((current) => ({ ...current, pattern: event.target.value }))}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-                <textarea
-                  value={draft.meaning}
-                  onChange={(event) => setDraft((current) => ({ ...current, meaning: event.target.value }))}
-                  rows={2}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-                <textarea
-                  value={draft.connection}
-                  onChange={(event) => setDraft((current) => ({ ...current, connection: event.target.value }))}
-                  rows={2}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-                <textarea
-                  value={draft.example}
-                  onChange={(event) => setDraft((current) => ({ ...current, example: event.target.value }))}
-                  rows={2}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                />
-                <label className="space-y-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  <span>詳細說明</span>
-                  <textarea
-                    value={draft.specialNote}
-                    onChange={(event) => setDraft((current) => ({ ...current, specialNote: event.target.value }))}
-                    rows={4}
-                    placeholder="補充說明、常見錯誤、延伸用法"
-                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                  />
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleSaveEdit(card.id)}
-                    className="rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white dark:bg-blue-500"
-                  >
-                    儲存
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditingId(null)}
-                    className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
-                  >
-                    取消
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <h3 className="mt-2 text-base font-bold text-slate-900 dark:text-white">{card.meaning}</h3>
-                <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{card.example}</p>
-                <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-slate-600 dark:text-slate-300">
-                  <span className="font-semibold text-slate-700 dark:text-slate-200">詳細說明：</span>{' '}
-                  {card.specialNote || '未填寫'}
-                </p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <Link
-                    href="/#practice"
-                    className="inline-flex rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    練習這張卡片
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => handleEditStart(card)}
-                    className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
-                  >
-                    編輯
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(card.id)}
-                    className="rounded-full border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300"
-                  >
-                    刪除
-                  </button>
-                </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => handleDifficultyGroupChange(card.id, 'difficult')}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                      card.difficultyGroup === 'difficult'
-                        ? 'bg-rose-500 text-white'
-                        : 'border border-rose-300 text-rose-700 dark:border-rose-800 dark:text-rose-300'
-                    }`}
-                  >
-                    難卡
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDifficultyGroupChange(card.id, 'easy')}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-                      card.difficultyGroup === 'easy'
-                        ? 'bg-emerald-500 text-white'
-                        : 'border border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300'
-                    }`}
-                  >
-                    易卡
-                  </button>
-                </div>
-              </>
-            )}
+            <h3 className="mt-2 text-base font-bold text-slate-900 dark:text-white">{card.meaning}</h3>
+            <p className="mt-1 line-clamp-2 text-sm text-slate-600 dark:text-slate-300">{card.example}</p>
+            <p className="mt-2 line-clamp-3 whitespace-pre-wrap text-xs leading-5 text-slate-600 dark:text-slate-300">
+              <span className="font-semibold text-slate-700 dark:text-slate-200">詳細說明：</span>{' '}
+              {card.specialNote || '未填寫'}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Link
+                href="/#practice"
+                className="inline-flex rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                練習這張卡片
+              </Link>
+              <button
+                type="button"
+                onClick={(event) => handleEditStart(card, event.currentTarget)}
+                className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
+              >
+                編輯
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDelete(card.id)}
+                className="rounded-full border border-rose-300 px-3 py-1.5 text-xs font-semibold text-rose-700 dark:border-rose-800 dark:text-rose-300"
+              >
+                刪除
+              </button>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleDifficultyGroupChange(card.id, 'difficult')}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  card.difficultyGroup === 'difficult'
+                    ? 'bg-rose-500 text-white'
+                    : 'border border-rose-300 text-rose-700 dark:border-rose-800 dark:text-rose-300'
+                }`}
+              >
+                難卡
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDifficultyGroupChange(card.id, 'easy')}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  card.difficultyGroup === 'easy'
+                    ? 'bg-emerald-500 text-white'
+                    : 'border border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300'
+                }`}
+              >
+                易卡
+              </button>
+            </div>
           </article>
         ))}
       </div>
@@ -324,6 +268,21 @@ export default function GrammarBank() {
         <p className="mt-4 rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300">
           {cards.length === 0 ? '目前沒有文法卡片，請新增或從 GitHub 下載。' : '找不到符合搜尋條件的文法。'}
         </p>
+      ) : null}
+
+      {editingId && draft ? (
+        <GrammarEditModal
+          draft={draft}
+          title={(() => {
+            const editingCard = cards.find((card) => card.id === editingId);
+            return editingCard ? `${editingCard.level} · ${editingCard.pattern}` : '編輯文法卡片';
+          })()}
+          description="儲存後會保留這張卡片的標籤與複習狀態。"
+          onChange={setDraft}
+          onSave={() => handleSaveEdit(editingId)}
+          onCancel={handleCancelEdit}
+          returnFocusElement={editTriggerElement}
+        />
       ) : null}
     </section>
   );

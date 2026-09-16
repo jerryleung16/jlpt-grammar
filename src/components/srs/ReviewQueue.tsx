@@ -9,7 +9,7 @@ import {
   type GrammarCard,
   type GrammarCardDraft,
 } from '@/lib/grammar-data';
-import InlineGrammarEditor from '@/components/grammar/InlineGrammarEditor';
+import GrammarEditModal from '@/components/grammar/GrammarEditModal';
 import { getGithubSyncConfig, uploadGrammarCardsToGithub } from '@/lib/github-sync';
 import SwipeableCard from '@/components/srs/SwipeableCard';
 
@@ -66,6 +66,7 @@ export default function ReviewQueue() {
   const [selectedLevels, setSelectedLevels] = useState<string[]>([]);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<GrammarCardDraft | null>(null);
+  const [editTriggerElement, setEditTriggerElement] = useState<HTMLElement | null>(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [syncMessage, setSyncMessage] = useState('');
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
@@ -224,7 +225,7 @@ export default function ReviewQueue() {
     handleAdvance();
   }, [activeCard, handleAdvance]);
 
-  const handleStartEdit = useCallback(() => {
+  const handleStartEdit = useCallback((triggerElement?: HTMLElement) => {
     if (!activeCard) {
       return;
     }
@@ -232,14 +233,16 @@ export default function ReviewQueue() {
     const currentCard = getStoredGrammarCards().find((card) => card.id === activeCard.id) ?? activeCard;
     setEditingCardId(currentCard.id);
     setEditDraft(getGrammarCardDraft(currentCard));
+    setEditTriggerElement(triggerElement ?? null);
   }, [activeCard]);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingCardId(null);
     setEditDraft(null);
-  };
+    setEditTriggerElement(null);
+  }, []);
 
-  const handleSaveEdit = (moveToNext = false) => {
+  const handleSaveEdit = useCallback((moveToNext = false) => {
     if (!editingCardId || !editDraft) {
       return;
     }
@@ -255,7 +258,7 @@ export default function ReviewQueue() {
     if (moveToNext) {
       handleAdvance();
     }
-  };
+  }, [editDraft, editingCardId, handleAdvance, handleCancelEdit]);
 
   const handleQuickBackup = useCallback(async () => {
     setIsBackingUp(true);
@@ -472,7 +475,7 @@ export default function ReviewQueue() {
           <div className="sticky bottom-3 z-10 flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur lg:hidden dark:border-slate-800 dark:bg-slate-900/95">
             <button
               type="button"
-              onClick={handleStartEdit}
+              onClick={(event) => handleStartEdit(event.currentTarget)}
               className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white dark:bg-blue-500"
             >
               編輯卡片
@@ -503,7 +506,7 @@ export default function ReviewQueue() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    onClick={handleStartEdit}
+                    onClick={(event) => handleStartEdit(event.currentTarget)}
                     className="rounded-xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white dark:bg-blue-500"
                   >
                     編輯卡片
@@ -533,42 +536,32 @@ export default function ReviewQueue() {
                 ) : null}
               </div>
 
-              {editingCardId === activeCard.id && editDraft ? (
-                <InlineGrammarEditor
-                  draft={editDraft}
-                  onChange={setEditDraft}
-                  onSave={() => handleSaveEdit()}
-                  onSaveAndNext={() => handleSaveEdit(true)}
-                  onCancel={handleCancelEdit}
-                />
-              ) : (
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                  <p className="text-sm text-slate-600 dark:text-slate-300">用按鈕標記卡片，完成後會自動前往下一張。</p>
-                  <div className="mt-3 grid gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleLabelCard('untagged')}
-                      className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-                    >
-                      標記為未標籤
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLabelCard('easy')}
-                      className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
-                    >
-                      標記為已掌握
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleLabelCard('difficult')}
-                      className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 transition hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
-                    >
-                      標記為未掌握
-                    </button>
-                  </div>
+              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+                <p className="text-sm text-slate-600 dark:text-slate-300">用按鈕標記卡片，完成後會自動前往下一張。</p>
+                <div className="mt-3 grid gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleLabelCard('untagged')}
+                    className="rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                  >
+                    標記為未標籤
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLabelCard('easy')}
+                    className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-800 transition hover:bg-emerald-100 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 dark:hover:bg-emerald-950/60"
+                  >
+                    標記為已掌握
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleLabelCard('difficult')}
+                    className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 transition hover:bg-rose-100 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                  >
+                    標記為未掌握
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </>
@@ -577,6 +570,19 @@ export default function ReviewQueue() {
           {queue.length === 0 ? '目前沒有文法卡片。' : '沒有符合目前篩選條件的卡片。'}
         </div>
       )}
+
+      {editingCardId && editDraft ? (
+        <GrammarEditModal
+          draft={editDraft}
+          title={activeCard ? `${activeCard.level} · ${activeCard.pattern}` : '編輯文法卡片'}
+          description="儲存後會保留這張卡片的標籤與複習狀態。"
+          onChange={setEditDraft}
+          onSave={() => handleSaveEdit()}
+          onSaveAndNext={() => handleSaveEdit(true)}
+          onCancel={handleCancelEdit}
+          returnFocusElement={editTriggerElement}
+        />
+      ) : null}
     </div>
   );
 }
