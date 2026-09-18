@@ -22,7 +22,17 @@ type GithubProfile = {
 
 function config() {
   const apiUrl = process.env.API_PUBLIC_URL || process.env.APP_URL || 'http://localhost:3000';
-  const frontendUrl = process.env.FRONTEND_URL || apiUrl;
+  const configuredFrontendUrl = process.env.FRONTEND_URL || apiUrl;
+  const frontendUrl = (() => {
+    try {
+      const parsed = new URL(configuredFrontendUrl);
+      return parsed.hostname.endsWith('.github.io')
+        ? `${apiUrl.replace(/\/$/, '')}/jlpt-grammar/`
+        : configuredFrontendUrl;
+    } catch {
+      return configuredFrontendUrl;
+    }
+  })();
   const secret = process.env.SESSION_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'local-development-secret-change-me');
   if (!process.env.GITHUB_CLIENT_ID || !process.env.GITHUB_CLIENT_SECRET || !secret) {
     throw new Error('oauth_not_configured');

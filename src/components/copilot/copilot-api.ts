@@ -60,7 +60,14 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 export function getGithubLoginUrl() {
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('.github.io')) {
+    return `${apiOrigin}/jlpt-grammar/`;
+  }
   return apiPath('/api/auth/github');
+}
+
+export function usesSameOriginLogin() {
+  return typeof window !== 'undefined' && !window.location.hostname.endsWith('.github.io');
 }
 
 export async function getAuthUser() {

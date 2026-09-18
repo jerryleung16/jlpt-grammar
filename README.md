@@ -69,4 +69,4 @@ Copilot 抽屜支援建立自訂助教，每個助教有名稱與教學指示；
 
 ### 手機與 Render 同源備援
 
-Render 服務同時掛載 `/jlpt-grammar/` 的 static export，因此可直接用 `https://YOUR-RENDER-SERVICE.onrender.com/jlpt-grammar/` 測試同源登入。若使用這個網址，將 Render 的 `FRONTEND_URL` 設為該網址；若繼續使用 GitHub Pages，保留 Pages URL，並確認 `CORS_ORIGINS` 至少包含 `https://USER.github.io`。登入後重新整理時，頁面會透過 `/api/auth/me` 重新檢查 session；網路暫時失敗會顯示「重試」而不是靜默隱藏錯誤。
+Render 服務同時掛載 `/jlpt-grammar/` 的 static export。GitHub Pages 上的登入按鈕會自動前往 `https://YOUR-RENDER-SERVICE.onrender.com/jlpt-grammar/`，避免手機瀏覽器封鎖跨網站 session cookie；Render OAuth callback 也會將 GitHub Pages 的舊 `FRONTEND_URL` 自動改為 Render 同源網址。若使用自訂網域，將 Render 的 `FRONTEND_URL` 設為該網址；若繼續使用 GitHub Pages，保留 Pages URL，並確認 `CORS_ORIGINS` 至少包含 `https://USER.github.io`。登入後重新整理時，頁面會透過 `/api/auth/me` 重新檢查 session；網路暫時失敗會顯示「重試」而不是靜默隱藏錯誤。
