@@ -416,7 +416,7 @@ export async function listCopilotTurns(sessionId: string) {
     prompt: row.prompt as string,
     context: row.context as string,
     response: (row.response as string | null) ?? null,
-    proposals: (row.proposals as GrammarMutationProposal[]) ?? [],
+    proposals: Array.isArray(row.proposals) ? row.proposals as GrammarMutationProposal[] : [],
     status: row.status as StoredCopilotTurn['status'],
     error: (row.error as string | null) ?? null,
     model: (row.model as string | null) ?? null,
