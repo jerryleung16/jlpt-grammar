@@ -9,6 +9,23 @@ type User = { id: string; login: string; avatarUrl: string | null };
 export default function AuthStatus() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const retryUser = () => {
+    setIsLoading(true);
+    setError(false);
+    const active = true;
+    void getAuthUser()
+      .then((result) => {
+        if (active) setUser(result?.user ?? null);
+      })
+      .catch(() => {
+        if (active) setError(true);
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+  };
 
   useEffect(() => {
     let active = true;
@@ -16,7 +33,9 @@ export default function AuthStatus() {
       .then((result) => {
         if (active) setUser(result?.user ?? null);
       })
-      .catch(() => undefined)
+      .catch(() => {
+        if (active) setError(true);
+      })
       .finally(() => {
         if (active) setIsLoading(false);
       });
@@ -29,13 +48,16 @@ export default function AuthStatus() {
 
   if (!user) {
     return (
-      <a
-        href={getGithubLoginUrl()}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-      >
-        <LogIn size={15} aria-hidden="true" />
-        GitHub 登入
-      </a>
+      <div className="flex items-center gap-2">
+        <a
+          href={getGithubLoginUrl()}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          <LogIn size={15} aria-hidden="true" />
+          GitHub 登入
+        </a>
+        {error ? <button type="button" onClick={retryUser} className="text-xs font-semibold text-blue-700 underline dark:text-blue-300">重試</button> : null}
+      </div>
     );
   }
 

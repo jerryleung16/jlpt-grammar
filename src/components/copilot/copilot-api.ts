@@ -9,20 +9,45 @@ export type CopilotTurn = {
   id: string;
   prompt: string;
   context: string;
+  sourceTurnId: string | null;
+  attemptType: 'initial' | 'retry' | 'edit';
   response: string | null;
   proposals: GrammarMutationProposal[];
   status: 'pending' | 'success' | 'error';
   error: string | null;
+  model: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  totalNanoAiu: number | null;
   createdAt: string;
   updatedAt: string;
 };
 
+export type AgentProfile = {
+  id: string;
+  name: string;
+  instructions: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CopilotUsage = {
+  status: 'unavailable' | 'available';
+  requestCount: number;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  totalNanoAiu: number | null;
+};
+
 export type CopilotSession = {
   id: string;
+  agentId: string | null;
   name: string;
   busy: boolean;
   requestCount: number;
-  usage: { status: 'unavailable' | 'available' };
+  usage: CopilotUsage;
   turns: CopilotTurn[];
 };
 
@@ -72,12 +97,41 @@ export async function listCopilotSessions() {
   return parseResponse<{ sessions: CopilotSession[] }>(await fetch(copilotEndpoint, { credentials: 'include', cache: 'no-store' }));
 }
 
-export async function createCopilotSession(name: string) {
+export async function listCopilotAgents() {
+  return parseResponse<{ agents: AgentProfile[] }>(await fetch(apiPath('/api/copilot/agents'), { credentials: 'include', cache: 'no-store' }));
+}
+
+export async function createCopilotAgent(name: string, instructions: string) {
+  return parseResponse<{ agent: AgentProfile }>(await fetch(apiPath('/api/copilot/agents'), {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, instructions }),
+  }));
+}
+
+export async function updateCopilotAgent(agentId: string, name: string, instructions: string) {
+  return parseResponse<{ agent: AgentProfile }>(await fetch(apiPath(`/api/copilot/agents/${agentId}`), {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, instructions }),
+  }));
+}
+
+export async function deleteCopilotAgent(agentId: string) {
+  return parseResponse<{ deleted: true }>(await fetch(apiPath(`/api/copilot/agents/${agentId}`), {
+    method: 'DELETE',
+    credentials: 'include',
+  }));
+}
+
+export async function createCopilotSession(name: string, agentId?: string) {
   return parseResponse<{ session: CopilotSession }>(await fetch(copilotEndpoint, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ operation: 'create', name }),
+    body: JSON.stringify({ operation: 'create', name, agentId }),
   }));
 }
 
@@ -86,12 +140,13 @@ export async function sendCopilotMessage(
   message: string,
   context: string,
   signal: AbortSignal,
+  options: { sourceTurnId?: string; attemptType?: 'initial' | 'retry' | 'edit' } = {},
 ) {
   return parseResponse<{ content: string; turn: CopilotTurn; session: CopilotSession }>(await fetch(copilotEndpoint, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ operation: 'send', sessionId, message, context }),
+    body: JSON.stringify({ operation: 'send', sessionId, message, context, ...options }),
     signal,
   }));
 }
@@ -111,5 +166,12 @@ export async function deleteCopilotSession(sessionId: string) {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ operation: 'delete', sessionId }),
+  }));
+}
+
+export async function getCopilotQuota() {
+  return parseResponse<{ status: 'available' | 'unavailable'; quotaSnapshots: Record<string, unknown> }>(await fetch(apiPath('/api/copilot/quota'), {
+    credentials: 'include',
+    cache: 'no-store',
   }));
 }

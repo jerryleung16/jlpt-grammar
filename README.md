@@ -19,6 +19,8 @@ http://localhost:3000/jlpt-grammar/
 
 助教會在右側抽屜中回答目前文法卡的問題，也可以提出修改或新增卡片的預覽。只有按下「確認套用」後，變更才會寫入卡片資料。助教不會刪除檔案或設定。
 
+Copilot 抽屜支援建立自訂助教，每個助教有名稱與教學指示；指示只會影響回答風格，不能覆蓋唯讀、提案預覽或秘密資料限制。每個對話會顯示請求次數與 SDK 回報的 token 使用量（若模型沒有回報，會標示資料尚未提供）。回答可編輯後重試，或直接重試；新的嘗試會保留與原訊息的關聯。
+
 ## 路由
 
 - `/` — 緊湊首頁，包含滑動式卡片複習、卡片管理與同步工具
@@ -55,6 +57,8 @@ http://localhost:3000/jlpt-grammar/
 - Render `FRONTEND_URL`：GitHub Pages 網址，例如 `https://USER.github.io/jlpt-grammar/`
 - Render `CORS_ORIGINS`：同一個 GitHub Pages origin，例如 `https://USER.github.io`
 
+`FRONTEND_URL` 可以包含 GitHub Pages 的 repository path；API 會自動將它正規化為瀏覽器的 origin。`CORS_ORIGINS` 建議填不含 path 的 origin。Session 與 OAuth state cookie 在 production 使用 `Secure`、`SameSite=None`，因此手機瀏覽器必須允許跨網站 cookie，且 API 必須使用 HTTPS。
+
 ### Render
 
 `render.yaml` 會建立 Web Service 與 Postgres。設定 OAuth 的兩個 secret，以及 `API_PUBLIC_URL`、`FRONTEND_URL`、`CORS_ORIGINS`；`SESSION_SECRET` 由 Render 自動產生。Render 的健康檢查為 `/api/health`。
@@ -62,3 +66,7 @@ http://localhost:3000/jlpt-grammar/
 ### GitHub Pages
 
 在 repository Variables 或 Secrets 設定 `RENDER_API_URL`，值為 Render 公開 URL，不要加最後的 `/`。Pages workflow 會把它注入 `NEXT_PUBLIC_API_BASE_URL`。如果 repository 名稱不是 `jlpt-grammar`，請同步調整 `next.config.ts` 的 `basePath` 與 `assetPrefix`。
+
+### 手機與 Render 同源備援
+
+Render 服務同時掛載 `/jlpt-grammar/` 的 static export，因此可直接用 `https://YOUR-RENDER-SERVICE.onrender.com/jlpt-grammar/` 測試同源登入。若使用這個網址，將 Render 的 `FRONTEND_URL` 設為該網址；若繼續使用 GitHub Pages，保留 Pages URL，並確認 `CORS_ORIGINS` 至少包含 `https://USER.github.io`。登入後重新整理時，頁面會透過 `/api/auth/me` 重新檢查 session；網路暫時失敗會顯示「重試」而不是靜默隱藏錯誤。

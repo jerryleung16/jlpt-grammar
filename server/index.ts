@@ -12,11 +12,16 @@ import {
 } from '@/lib/hosted-store';
 import {
   cancelAgentSession,
+  createAgentProfile,
   createAgentSession,
+  deleteAgentProfile,
   deleteAgentSession,
+  getCopilotQuota,
+  listAgentProfiles,
   listAgentSessions,
   sendAgentMessage,
   stopCopilot,
+  updateAgentProfile,
 } from '@/lib/copilot-server';
 
 const port = Number(process.env.PORT || 3000);
@@ -29,6 +34,10 @@ function errorResponse(error: unknown) {
     oauth_not_configured: 503,
     session_not_found: 404,
     duplicate_name: 409,
+    agent_limit: 409,
+    last_agent: 409,
+    agent_not_found: 404,
+    turn_not_found: 404,
     session_busy: 409,
     concurrency_limit: 429,
     unauthenticated: 401,
@@ -41,6 +50,11 @@ function errorResponse(error: unknown) {
     oauth_code_missing: 'GitHub 登入未完成，請重試。',
     invalid_name: '對話名稱不可為空，且不能超過 80 個字元。',
     duplicate_name: '這個對話名稱已經存在，請換一個名稱。',
+    agent_limit: '已達到自訂助教數量上限。',
+    last_agent: '至少需要保留一個助教。',
+    agent_not_found: '找不到這個自訂助教。',
+    invalid_instructions: '助教指示不可超過 4000 字元。',
+    turn_not_found: '找不到要重試的訊息。',
     invalid_message: '請提供不超過 1000 字元的問題。',
     invalid_context: '目前文法卡片內容無效或過長。',
     session_not_found: '找不到這個對話，請重新建立。',
@@ -138,6 +152,52 @@ export async function createServer() {
     }
   });
 
+  api.get('/copilot/agents', async (request, response) => {
+    try {
+      const user = await authenticated(request);
+      response.json({ agents: await listAgentProfiles(user.id) });
+    } catch (error) {
+      routeError(error, response);
+    }
+  });
+
+  api.post('/copilot/agents', async (request, response) => {
+    try {
+      const user = await authenticated(request);
+      response.status(201).json({ agent: await createAgentProfile(user.id, request.body?.name, request.body?.instructions) });
+    } catch (error) {
+      routeError(error, response);
+    }
+  });
+
+  api.put('/copilot/agents/:agentId', async (request, response) => {
+    try {
+      const user = await authenticated(request);
+      response.json({ agent: await updateAgentProfile(user.id, request.params.agentId, request.body?.name, request.body?.instructions) });
+    } catch (error) {
+      routeError(error, response);
+    }
+  });
+
+  api.delete('/copilot/agents/:agentId', async (request, response) => {
+    try {
+      const user = await authenticated(request);
+      await deleteAgentProfile(user.id, request.params.agentId);
+      response.json({ deleted: true });
+    } catch (error) {
+      routeError(error, response);
+    }
+  });
+
+  api.get('/copilot/quota', async (request, response) => {
+    try {
+      const user = await authenticated(request);
+      response.json(await getCopilotQuota(user.id, user.accessToken));
+    } catch (error) {
+      routeError(error, response);
+    }
+  });
+
   api.post('/copilot', async (request, response) => {
     try {
       const user = await authenticated(request);
@@ -145,17 +205,20 @@ export async function createServer() {
         operation?: string;
         sessionId?: string;
         name?: string;
+        agentId?: string;
         message?: string;
         context?: string;
         turnId?: string;
+        sourceTurnId?: string;
+        attemptType?: 'initial' | 'retry' | 'edit';
       };
       switch (payload.operation || 'send') {
         case 'create':
-          response.status(201).json({ session: await createAgentSession(user.id, user.accessToken, payload.name || '我的文法對話') });
+          response.status(201).json({ session: await createAgentSession(user.id, user.accessToken, payload.name || '我的文法對話', payload.agentId) });
           return;
         case 'send':
           if (!payload.sessionId) throw new Error('session_not_found');
-          response.json(await sendAgentMessage(user.id, user.accessToken, payload.sessionId, payload.message, payload.context, payload.turnId));
+          response.json(await sendAgentMessage(user.id, user.accessToken, payload.sessionId, payload.message, payload.context, payload.sourceTurnId || payload.turnId, payload.attemptType || 'initial'));
           return;
         case 'cancel':
           if (!payload.sessionId) throw new Error('session_not_found');

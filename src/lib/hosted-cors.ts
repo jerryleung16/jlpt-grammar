@@ -5,7 +5,14 @@ function allowedOrigins() {
     [process.env.FRONTEND_URL, process.env.API_PUBLIC_URL, process.env.CORS_ORIGINS, 'http://localhost:3000']
       .filter(Boolean)
       .flatMap((value) => value!.split(','))
-      .map((value) => value.trim().replace(/\/$/, '')),
+      .map((value) => value.trim())
+      .map((value) => {
+        try {
+          return new URL(value).origin;
+        } catch {
+          return value.replace(/\/$/, '');
+        }
+      }),
   );
 }
 
@@ -15,7 +22,7 @@ export function corsHeaders(request: Request, response: Response, next: NextFunc
     response.setHeader('Access-Control-Allow-Origin', origin);
     response.setHeader('Access-Control-Allow-Credentials', 'true');
     response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,OPTIONS');
+    response.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
     response.setHeader('Vary', 'Origin');
   }
   if (request.method === 'OPTIONS') {

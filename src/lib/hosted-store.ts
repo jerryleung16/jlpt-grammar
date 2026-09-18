@@ -10,9 +10,19 @@ export type HostedUser = {
   encryptedAccessToken: string;
 };
 
+export type StoredCopilotAgent = {
+  id: string;
+  userId: string;
+  name: string;
+  instructions: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type StoredCopilotSession = {
   id: string;
   userId: string;
+  agentId: string | null;
   name: string;
   sdkSessionId: string;
   createdAt: number;
@@ -23,12 +33,19 @@ export type StoredCopilotSession = {
 export type StoredCopilotTurn = {
   id: string;
   sessionId: string;
+  sourceTurnId: string | null;
+  attemptType: 'initial' | 'retry' | 'edit';
   prompt: string;
   context: string;
   response: string | null;
   proposals: GrammarMutationProposal[];
   status: 'pending' | 'success' | 'error';
   error: string | null;
+  model: string | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  totalNanoAiu: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -79,9 +96,19 @@ async function database() {
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (user_id, card_id)
       );
+      CREATE TABLE IF NOT EXISTS copilot_agents (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        instructions TEXT NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (user_id, name)
+      );
       CREATE TABLE IF NOT EXISTS copilot_sessions (
         id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+        agent_id TEXT REFERENCES copilot_agents(id) ON DELETE SET NULL,
         name TEXT NOT NULL,
         sdk_session_id TEXT NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -100,7 +127,16 @@ async function database() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      ALTER TABLE copilot_sessions ADD COLUMN IF NOT EXISTS agent_id TEXT REFERENCES copilot_agents(id) ON DELETE SET NULL;
+      ALTER TABLE copilot_turns ADD COLUMN IF NOT EXISTS source_turn_id TEXT REFERENCES copilot_turns(id) ON DELETE SET NULL;
+      ALTER TABLE copilot_turns ADD COLUMN IF NOT EXISTS attempt_type TEXT NOT NULL DEFAULT 'initial';
+      ALTER TABLE copilot_turns ADD COLUMN IF NOT EXISTS model TEXT;
+      ALTER TABLE copilot_turns ADD COLUMN IF NOT EXISTS input_tokens INTEGER;
+      ALTER TABLE copilot_turns ADD COLUMN IF NOT EXISTS output_tokens INTEGER;
+      ALTER TABLE copilot_turns ADD COLUMN IF NOT EXISTS total_tokens INTEGER;
+      ALTER TABLE copilot_turns ADD COLUMN IF NOT EXISTS total_nano_aiu BIGINT;
       CREATE INDEX IF NOT EXISTS copilot_sessions_user_idx ON copilot_sessions(user_id, last_used_at DESC);
+      CREATE INDEX IF NOT EXISTS copilot_agents_user_idx ON copilot_agents(user_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS copilot_turns_session_idx ON copilot_turns(session_id, created_at ASC);
     `);
   })();
@@ -170,16 +206,94 @@ export async function deleteAuthSession(sessionHash: string) {
   await client.query('DELETE FROM auth_sessions WHERE id_hash = $1', [sessionHash]);
 }
 
+export async function listCopilotAgents(userId: string) {
+  const client = await database();
+  const result = await client.query(
+    `SELECT id, user_id, name, instructions, created_at, updated_at
+     FROM copilot_agents WHERE user_id = $1 ORDER BY updated_at DESC`,
+    [userId],
+  );
+  return result.rows.map((row) => ({
+    id: row.id as string,
+    userId: row.user_id as string,
+    name: row.name as string,
+    instructions: row.instructions as string,
+    createdAt: timestamp(row.created_at),
+    updatedAt: timestamp(row.updated_at),
+  }));
+}
+
+export async function getCopilotAgent(userId: string, agentId: string) {
+  const client = await database();
+  const result = await client.query(
+    `SELECT id, user_id, name, instructions, created_at, updated_at
+     FROM copilot_agents WHERE id = $1 AND user_id = $2`,
+    [agentId, userId],
+  );
+  const row = result.rows[0];
+  return row
+    ? {
+        id: row.id as string,
+        userId: row.user_id as string,
+        name: row.name as string,
+        instructions: row.instructions as string,
+        createdAt: timestamp(row.created_at),
+        updatedAt: timestamp(row.updated_at),
+      }
+    : null;
+}
+
+export async function createCopilotAgent(agent: StoredCopilotAgent) {
+  const client = await database();
+  await client.query(
+    `INSERT INTO copilot_agents (id, user_id, name, instructions, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, TO_TIMESTAMP($5 / 1000.0), TO_TIMESTAMP($6 / 1000.0))`,
+    [agent.id, agent.userId, agent.name, agent.instructions, agent.createdAt, agent.updatedAt],
+  );
+}
+
+export async function updateCopilotAgent(userId: string, agentId: string, name: string, instructions: string) {
+  const client = await database();
+  const result = await client.query(
+    `UPDATE copilot_agents SET name = $3, instructions = $4, updated_at = NOW()
+     WHERE id = $1 AND user_id = $2
+     RETURNING id, user_id, name, instructions, created_at, updated_at`,
+    [agentId, userId, name, instructions],
+  );
+  const row = result.rows[0];
+  return row
+    ? {
+        id: row.id as string,
+        userId: row.user_id as string,
+        name: row.name as string,
+        instructions: row.instructions as string,
+        createdAt: timestamp(row.created_at),
+        updatedAt: timestamp(row.updated_at),
+      }
+    : null;
+}
+
+export async function deleteCopilotAgent(userId: string, agentId: string) {
+  const client = await database();
+  await client.query('DELETE FROM copilot_agents WHERE id = $1 AND user_id = $2', [agentId, userId]);
+}
+
+export async function assignCopilotSessionAgent(sessionId: string, agentId: string) {
+  const client = await database();
+  await client.query('UPDATE copilot_sessions SET agent_id = $2 WHERE id = $1', [sessionId, agentId]);
+}
+
 export async function listCopilotSessions(userId: string) {
   const client = await database();
   const result = await client.query(
-    `SELECT id, user_id, name, sdk_session_id, created_at, last_used_at, request_count
+    `SELECT id, user_id, agent_id, name, sdk_session_id, created_at, last_used_at, request_count
      FROM copilot_sessions WHERE user_id = $1 ORDER BY last_used_at DESC`,
     [userId],
   );
   return result.rows.map((row) => ({
     id: row.id as string,
     userId: row.user_id as string,
+    agentId: (row.agent_id as string | null) ?? null,
     name: row.name as string,
     sdkSessionId: row.sdk_session_id as string,
     createdAt: timestamp(row.created_at),
@@ -191,7 +305,7 @@ export async function listCopilotSessions(userId: string) {
 export async function getCopilotSession(userId: string, sessionId: string) {
   const client = await database();
   const result = await client.query(
-    `SELECT id, user_id, name, sdk_session_id, created_at, last_used_at, request_count
+    `SELECT id, user_id, agent_id, name, sdk_session_id, created_at, last_used_at, request_count
      FROM copilot_sessions WHERE id = $1 AND user_id = $2`,
     [sessionId, userId],
   );
@@ -200,6 +314,7 @@ export async function getCopilotSession(userId: string, sessionId: string) {
     ? {
         id: row.id as string,
         userId: row.user_id as string,
+        agentId: (row.agent_id as string | null) ?? null,
         name: row.name as string,
         sdkSessionId: row.sdk_session_id as string,
         createdAt: timestamp(row.created_at),
@@ -212,9 +327,9 @@ export async function getCopilotSession(userId: string, sessionId: string) {
 export async function createCopilotSession(session: StoredCopilotSession) {
   const client = await database();
   await client.query(
-    `INSERT INTO copilot_sessions (id, user_id, name, sdk_session_id, created_at, last_used_at, request_count)
-     VALUES ($1, $2, $3, $4, TO_TIMESTAMP($5 / 1000.0), TO_TIMESTAMP($6 / 1000.0), $7)`,
-    [session.id, session.userId, session.name, session.sdkSessionId, session.createdAt, session.lastUsedAt, session.requestCount],
+    `INSERT INTO copilot_sessions (id, user_id, agent_id, name, sdk_session_id, created_at, last_used_at, request_count)
+     VALUES ($1, $2, $3, $4, $5, TO_TIMESTAMP($6 / 1000.0), TO_TIMESTAMP($7 / 1000.0), $8)`,
+    [session.id, session.userId, session.agentId, session.name, session.sdkSessionId, session.createdAt, session.lastUsedAt, session.requestCount],
   );
 }
 
@@ -240,19 +355,26 @@ export async function deleteCopilotSession(userId: string, sessionId: string) {
 export async function listCopilotTurns(sessionId: string) {
   const client = await database();
   const result = await client.query(
-    `SELECT id, session_id, prompt, context, response, proposals, status, error, created_at, updated_at
+    `SELECT id, session_id, source_turn_id, attempt_type, prompt, context, response, proposals, status, error, model, input_tokens, output_tokens, total_tokens, total_nano_aiu, created_at, updated_at
      FROM copilot_turns WHERE session_id = $1 ORDER BY created_at ASC`,
     [sessionId],
   );
   return result.rows.map((row) => ({
     id: row.id as string,
     sessionId: row.session_id as string,
+    sourceTurnId: (row.source_turn_id as string | null) ?? null,
+    attemptType: row.attempt_type as StoredCopilotTurn['attemptType'],
     prompt: row.prompt as string,
     context: row.context as string,
     response: (row.response as string | null) ?? null,
     proposals: (row.proposals as GrammarMutationProposal[]) ?? [],
     status: row.status as StoredCopilotTurn['status'],
     error: (row.error as string | null) ?? null,
+    model: (row.model as string | null) ?? null,
+    inputTokens: (row.input_tokens as number | null) ?? null,
+    outputTokens: (row.output_tokens as number | null) ?? null,
+    totalTokens: (row.total_tokens as number | null) ?? null,
+    totalNanoAiu: (row.total_nano_aiu as number | null) ?? null,
     createdAt: timestamp(row.created_at),
     updatedAt: timestamp(row.updated_at),
   }));
@@ -261,18 +383,18 @@ export async function listCopilotTurns(sessionId: string) {
 export async function createCopilotTurn(turn: StoredCopilotTurn) {
   const client = await database();
   await client.query(
-    `INSERT INTO copilot_turns (id, session_id, prompt, context, response, proposals, status, error, created_at, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, TO_TIMESTAMP($9 / 1000.0), TO_TIMESTAMP($10 / 1000.0))`,
-    [turn.id, turn.sessionId, turn.prompt, turn.context, turn.response, JSON.stringify(turn.proposals), turn.status, turn.error, turn.createdAt, turn.updatedAt],
+    `INSERT INTO copilot_turns (id, session_id, source_turn_id, attempt_type, prompt, context, response, proposals, status, error, model, input_tokens, output_tokens, total_tokens, total_nano_aiu, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, TO_TIMESTAMP($16 / 1000.0), TO_TIMESTAMP($17 / 1000.0))`,
+    [turn.id, turn.sessionId, turn.sourceTurnId, turn.attemptType, turn.prompt, turn.context, turn.response, JSON.stringify(turn.proposals), turn.status, turn.error, turn.model, turn.inputTokens, turn.outputTokens, turn.totalTokens, turn.totalNanoAiu, turn.createdAt, turn.updatedAt],
   );
 }
 
 export async function updateCopilotTurn(turn: StoredCopilotTurn) {
   const client = await database();
   await client.query(
-    `UPDATE copilot_turns SET response = $2, proposals = $3::jsonb, status = $4, error = $5, updated_at = TO_TIMESTAMP($6 / 1000.0)
+    `UPDATE copilot_turns SET response = $2, proposals = $3::jsonb, status = $4, error = $5, model = $6, input_tokens = $7, output_tokens = $8, total_tokens = $9, total_nano_aiu = $10, updated_at = TO_TIMESTAMP($11 / 1000.0)
      WHERE id = $1`,
-    [turn.id, turn.response, JSON.stringify(turn.proposals), turn.status, turn.error, turn.updatedAt],
+    [turn.id, turn.response, JSON.stringify(turn.proposals), turn.status, turn.error, turn.model, turn.inputTokens, turn.outputTokens, turn.totalTokens, turn.totalNanoAiu, turn.updatedAt],
   );
 }
 
