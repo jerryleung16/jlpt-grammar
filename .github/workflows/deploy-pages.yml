@@ -32,7 +32,7 @@ jobs:
 
       - name: Build static export
         env:
-          NEXT_PUBLIC_API_BASE_URL: ${{ vars.RENDER_API_URL || secrets.RENDER_API_URL }}
+          NEXT_PUBLIC_API_BASE_URL: https://jlpt-grammar-api.onrender.com
         run: npm run build
 
       - name: Upload Pages artifact
