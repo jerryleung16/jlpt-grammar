@@ -89,6 +89,13 @@ async function database() {
         expires_at TIMESTAMPTZ NOT NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS oauth_handoffs (
+        code_hash TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
+        verifier_challenge TEXT NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS grammar_cards (
         user_id TEXT NOT NULL REFERENCES app_users(id) ON DELETE CASCADE,
         card_id TEXT NOT NULL,
@@ -138,6 +145,7 @@ async function database() {
       CREATE INDEX IF NOT EXISTS copilot_sessions_user_idx ON copilot_sessions(user_id, last_used_at DESC);
       CREATE INDEX IF NOT EXISTS copilot_agents_user_idx ON copilot_agents(user_id, updated_at DESC);
       CREATE INDEX IF NOT EXISTS copilot_turns_session_idx ON copilot_turns(session_id, created_at ASC);
+      CREATE INDEX IF NOT EXISTS oauth_handoffs_expiry_idx ON oauth_handoffs(expires_at);
     `);
   })();
   await schemaPromise;
@@ -199,6 +207,47 @@ export async function createAuthSession(sessionHash: string, userId: string, exp
     'INSERT INTO auth_sessions (id_hash, user_id, expires_at) VALUES ($1, $2, $3)',
     [sessionHash, userId, expiresAt],
   );
+}
+
+export async function createOAuthHandoff(codeHash: string, userId: string, verifierChallenge: string, expiresAt: Date) {
+  const client = await database();
+  await client.query('DELETE FROM oauth_handoffs WHERE expires_at <= NOW()');
+  await client.query(
+    `INSERT INTO oauth_handoffs (code_hash, user_id, verifier_challenge, expires_at)
+     VALUES ($1, $2, $3, $4)`,
+    [codeHash, userId, verifierChallenge, expiresAt],
+  );
+}
+
+export async function consumeOAuthHandoff(
+  codeHash: string,
+  verifierChallenge: string,
+  sessionHash: string,
+  sessionExpiresAt: Date,
+) {
+  const client = await database().then((value) => value.connect());
+  try {
+    await client.query('BEGIN');
+    const handoff = await client.query(
+      `DELETE FROM oauth_handoffs
+       WHERE code_hash = $1 AND verifier_challenge = $2 AND expires_at > NOW()
+       RETURNING user_id`,
+      [codeHash, verifierChallenge],
+    );
+    const userId = handoff.rows[0]?.user_id as string | undefined;
+    if (!userId) throw new Error('oauth_handoff_invalid');
+    await client.query(
+      'INSERT INTO auth_sessions (id_hash, user_id, expires_at) VALUES ($1, $2, $3)',
+      [sessionHash, userId, sessionExpiresAt],
+    );
+    await client.query('COMMIT');
+    return userId;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function deleteAuthSession(sessionHash: string) {

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import express, { type Request, type Response } from 'express';
 import next from 'next';
-import { currentUser, githubCallback, githubLogin, logout, publicUser } from '@/lib/hosted-auth';
+import { currentUser, exchangeGithubHandoff, githubCallback, githubLogin, logout, publicUser } from '@/lib/hosted-auth';
 import { corsHeaders } from '@/lib/hosted-cors';
 import {
   databaseHealth,
@@ -32,6 +32,9 @@ function errorResponse(error: unknown) {
   const status = {
     database_unavailable: 503,
     oauth_not_configured: 503,
+    oauth_challenge_invalid: 400,
+    oauth_verifier_invalid: 400,
+    oauth_handoff_invalid: 400,
     session_not_found: 404,
     duplicate_name: 409,
     agent_limit: 409,
@@ -48,6 +51,9 @@ function errorResponse(error: unknown) {
     oauth_not_configured: 'GitHub OAuth 尚未設定，請聯絡管理員。',
     oauth_state_invalid: '登入狀態已失效，請重新登入。',
     oauth_code_missing: 'GitHub 登入未完成，請重試。',
+    oauth_challenge_invalid: '登入請求無效，請重新登入。',
+    oauth_verifier_invalid: '登入驗證無效，請重新登入。',
+    oauth_handoff_invalid: '登入連結已失效，請重新登入。',
     invalid_name: '對話名稱不可為空，且不能超過 80 個字元。',
     duplicate_name: '這個對話名稱已經存在，請換一個名稱。',
     agent_limit: '已達到自訂助教數量上限。',
@@ -92,6 +98,7 @@ export async function createServer() {
 
   api.get('/auth/github', (request, response) => {
     try {
+      response.setHeader('Cache-Control', 'no-store');
       githubLogin(request, response);
     } catch (error) {
       routeError(error, response);
@@ -100,7 +107,18 @@ export async function createServer() {
 
   api.get('/auth/github/callback', async (request, response) => {
     try {
+      response.setHeader('Cache-Control', 'no-store');
       await githubCallback(request, response);
+    } catch (error) {
+      routeError(error, response);
+    }
+  });
+
+  api.post('/auth/exchange', async (request, response) => {
+    try {
+      response.setHeader('Cache-Control', 'no-store');
+      const result = await exchangeGithubHandoff(request.body?.code, request.body?.verifier);
+      response.json(result);
     } catch (error) {
       routeError(error, response);
     }

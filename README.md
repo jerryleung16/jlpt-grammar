@@ -57,7 +57,7 @@ Copilot 抽屜支援建立自訂助教，每個助教有名稱與教學指示；
 - Render `FRONTEND_URL`：GitHub Pages 網址，例如 `https://USER.github.io/jlpt-grammar/`
 - Render `CORS_ORIGINS`：同一個 GitHub Pages origin，例如 `https://USER.github.io`
 
-`FRONTEND_URL` 可以包含 GitHub Pages 的 repository path；API 會自動將它正規化為瀏覽器的 origin。`CORS_ORIGINS` 建議填不含 path 的 origin。Session 與 OAuth state cookie 在 production 使用 `Secure`、`SameSite=None`，因此手機瀏覽器必須允許跨網站 cookie，且 API 必須使用 HTTPS。
+`FRONTEND_URL` 應設定為完整的 GitHub Pages 網址，例如 `https://USER.github.io/jlpt-grammar/`；OAuth 完成後會回到這個網址。`CORS_ORIGINS` 建議填不含 path 的 origin。API 必須使用 HTTPS。
 
 ### Render
 
@@ -67,6 +67,8 @@ Copilot 抽屜支援建立自訂助教，每個助教有名稱與教學指示；
 
 在 repository Variables 或 Secrets 設定 `RENDER_API_URL`，值為 Render 公開 URL，不要加最後的 `/`。Pages workflow 會把它注入 `NEXT_PUBLIC_API_BASE_URL`。如果 repository 名稱不是 `jlpt-grammar`，請同步調整 `next.config.ts` 的 `basePath` 與 `assetPrefix`。
 
-### 手機與 Render 同源備援
+### 同頁登入與手機
 
-Render 服務同時掛載 `/jlpt-grammar/` 的 static export。GitHub Pages 上的登入按鈕會自動前往 `https://YOUR-RENDER-SERVICE.onrender.com/jlpt-grammar/`，避免手機瀏覽器封鎖跨網站 session cookie；Render OAuth callback 也會將 GitHub Pages 的舊 `FRONTEND_URL` 自動改為 Render 同源網址。若使用自訂網域，將 Render 的 `FRONTEND_URL` 設為該網址；若繼續使用 GitHub Pages，保留 Pages URL，並確認 `CORS_ORIGINS` 至少包含 `https://USER.github.io`。登入後重新整理時，頁面會透過 `/api/auth/me` 重新檢查 session；網路暫時失敗會顯示「重試」而不是靜默隱藏錯誤。
+GitHub Pages 的登入按鈕會先在瀏覽器產生一次性驗證碼，然後前往 Render 的 OAuth API。OAuth 完成後，Render 只會將短效、單次使用的 handoff code 放在 callback fragment，並返回 GitHub Pages；Pages 會立即交換它，將不可讀的應用程式 session token 儲存在瀏覽器，最後網址仍然是 `https://USER.github.io/jlpt-grammar/`。GitHub access token 永遠只保存在 Render 伺服器。
+
+這個流程不依賴 GitHub Pages 到 Render 的第三方 session cookie，因此適合手機瀏覽器。Render 仍然掛載 `/jlpt-grammar/` 的 static export 作為維運備援；舊的 Render cookie session 也會在相容期內繼續有效。若網路暫時失敗，頁面會顯示「重試」而不是靜默隱藏錯誤。

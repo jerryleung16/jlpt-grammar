@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { LogIn, LogOut } from 'lucide-react';
-import { getAuthUser, getGithubLoginUrl, logoutGithub, usesSameOriginLogin } from '@/components/copilot/copilot-api';
+import {
+  completeGithubLogin,
+  consumeGithubLoginReturnPath,
+  getAuthUser,
+  getGithubLoginUrl,
+  logoutGithub,
+  startGithubLogin,
+} from '@/components/copilot/copilot-api';
 
 type User = { id: string; login: string; avatarUrl: string | null };
 
@@ -29,16 +36,28 @@ export default function AuthStatus() {
 
   useEffect(() => {
     let active = true;
-    void getAuthUser()
-      .then((result) => {
-        if (active) setUser(result?.user ?? null);
-      })
-      .catch(() => {
+    const callbackCode = new URLSearchParams(window.location.hash.slice(1)).get('oauth_code');
+    const loadUser = async () => {
+      try {
+        if (callbackCode) {
+          const returnPath = consumeGithubLoginReturnPath();
+          window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+          const result = await completeGithubLogin(callbackCode);
+          if (active) setUser(result.user);
+          if (returnPath.startsWith('#')) {
+            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${returnPath}`);
+          }
+        } else {
+          const result = await getAuthUser();
+          if (active) setUser(result?.user ?? null);
+        }
+      } catch {
         if (active) setError(true);
-      })
-      .finally(() => {
+      } finally {
         if (active) setIsLoading(false);
-      });
+      }
+    };
+    void loadUser();
     return () => {
       active = false;
     };
@@ -51,10 +70,21 @@ export default function AuthStatus() {
       <div className="flex items-center gap-2">
         <a
           href={getGithubLoginUrl()}
+          onClick={(event) => {
+            event.preventDefault();
+            setIsLoading(true);
+            setError(false);
+            void startGithubLogin()
+              .then((url) => window.location.assign(url))
+              .catch(() => {
+                setError(true);
+                setIsLoading(false);
+              });
+          }}
           className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
         >
           <LogIn size={15} aria-hidden="true" />
-          {usesSameOriginLogin() ? 'GitHub 登入' : '前往安全登入頁'}
+          GitHub 登入
         </a>
         {error ? <button type="button" onClick={retryUser} className="text-xs font-semibold text-blue-700 underline dark:text-blue-300">重試</button> : null}
       </div>
