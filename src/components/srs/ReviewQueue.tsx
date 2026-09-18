@@ -12,6 +12,9 @@ import {
 import GrammarEditModal from '@/components/grammar/GrammarEditModal';
 import { getGithubSyncConfig, uploadGrammarCardsToGithub } from '@/lib/github-sync';
 import SwipeableCard from '@/components/srs/SwipeableCard';
+import CopilotPanel from '@/components/copilot/CopilotPanel';
+import { getRemoteGrammarCards } from '@/components/copilot/copilot-api';
+import type { GrammarMutationProposal } from '@/lib/copilot-context';
 
 type ReviewPile = 'all' | 'untagged' | 'easy' | 'difficult';
 const LEVEL_OPTIONS = ['N1', 'N2', 'N3', 'N4', 'N5'] as const;
@@ -81,6 +84,12 @@ export default function ReviewQueue() {
       );
     };
     refreshQueue();
+
+    void getRemoteGrammarCards().then((result) => {
+      if (!result) return;
+      saveGrammarCards(result.cards, { sync: false });
+      refreshQueue();
+    }).catch(() => undefined);
 
     window.addEventListener('grammar-cards-updated', refreshQueue);
     return () => window.removeEventListener('grammar-cards-updated', refreshQueue);
@@ -275,6 +284,43 @@ export default function ReviewQueue() {
     } finally {
       setIsBackingUp(false);
     }
+  }, []);
+
+  const handleApplyCopilotProposal = useCallback((proposal: GrammarMutationProposal) => {
+    const latestCards = getStoredGrammarCards();
+
+    if (proposal.type === 'edit') {
+      const nextCards = latestCards.map((card) => {
+        if (card.id !== proposal.cardId) {
+          return card;
+        }
+
+        const nextCard: GrammarCard = {
+          ...card,
+          ...proposal.changes,
+          difficultyGroup:
+            proposal.changes.difficultyGroup === null
+              ? undefined
+              : proposal.changes.difficultyGroup ?? card.difficultyGroup,
+        };
+        return {
+          ...nextCard,
+          frontText: nextCard.pattern,
+          backExplanation: `${nextCard.meaning}｜${nextCard.connection}｜${nextCard.example}`,
+        };
+      });
+      saveGrammarCards(nextCards);
+      return;
+    }
+
+    const id = globalThis.crypto?.randomUUID?.() ?? `grammar-${Date.now()}`;
+    const card = {
+      id,
+      ...proposal.card,
+      frontText: proposal.card.pattern,
+      backExplanation: `${proposal.card.meaning}｜${proposal.card.connection}｜${proposal.card.example}`,
+    };
+    saveGrammarCards([...latestCards, card]);
   }, []);
 
   useEffect(() => {
@@ -492,14 +538,21 @@ export default function ReviewQueue() {
           </div>
 
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-            <SwipeableCard
-              key={`${activeCard.id}-${activeCard.pattern}`}
-              frontText={activeCard.frontText}
-              meaning={activeCard.meaning}
-              connection={activeCard.connection}
-              example={activeCard.example}
-              specialNote={activeCard.specialNote}
-            />
+            <div>
+              <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-start sm:justify-center">
+                <div className="min-w-0 flex-1">
+                  <SwipeableCard
+                    key={`${activeCard.id}-${activeCard.pattern}`}
+                    frontText={activeCard.frontText}
+                    meaning={activeCard.meaning}
+                    connection={activeCard.connection}
+                    example={activeCard.example}
+                    specialNote={activeCard.specialNote}
+                  />
+                </div>
+                <CopilotPanel activeCard={activeCard} onApplyProposal={handleApplyCopilotProposal} />
+              </div>
+            </div>
 
             <div className="space-y-4 lg:sticky lg:top-4">
               <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">

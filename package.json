@@ -3,15 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "tsx server/index.ts",
     "build": "next build",
-    "start": "next start",
+    "start": "cross-env NODE_ENV=production tsx server/index.ts",
     "lint": "eslint"
   },
   "dependencies": {
+    "@github/copilot-sdk": "^1.0.14",
+    "express": "^5.2.1",
     "framer-motion": "^12.43.0",
     "lucide-react": "^1.28.0",
     "next": "16.3.0",
+    "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "ts-fsrs": "^5.4.1"
@@ -19,13 +22,17 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@tinacms/cli": "^2.5.6",
+    "@types/express": "^5.0.6",
     "@types/node": "^20",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
     "tailwindcss": "^4",
     "tinacms": "^3.11.0",
+    "tsx": "^4.23.13",
     "typescript": "^5"
   }
 }

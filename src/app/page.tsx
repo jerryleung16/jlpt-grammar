@@ -2,6 +2,7 @@ import AddGrammarForm from "@/components/grammar/AddGrammarForm";
 import GrammarBank from "@/components/grammar/GrammarBank";
 import GithubSyncPanel from "@/components/grammar/GithubSyncPanel";
 import ReviewQueue from "@/components/srs/ReviewQueue";
+import AuthStatus from "@/components/auth/AuthStatus";
 
 export default function Home() {
   return (
@@ -16,9 +17,12 @@ export default function Home() {
             先複習，再整理；所有卡片都在同一個工作區內。
           </p>
         </div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-          先複習，再整理
-        </p>
+        <div className="flex flex-wrap items-center gap-2 sm:flex-col sm:items-end">
+          <AuthStatus />
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+            先複習，再整理
+          </p>
+        </div>
       </header>
 
       <section id="practice" className="scroll-mt-6">

@@ -38,6 +38,16 @@ export function updateGrammarCard(card: GrammarCard, draft: GrammarCardDraft): G
   };
 }
 
+export function createGrammarCard(
+  draft: GrammarCardDraft,
+  difficultyGroup?: DifficultyGroup,
+): GrammarCard {
+  const id = `grammar-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const card = updateGrammarCard({ id, ...draft, frontText: '', backExplanation: '' }, draft);
+
+  return difficultyGroup ? { ...card, difficultyGroup } : card;
+}
+
 const DEFAULT_GRAMMAR_CARDS: GrammarCard[] = [
   {
     id: "n5-1",
@@ -100,13 +110,18 @@ export function getStoredGrammarCards(): GrammarCard[] {
   }
 }
 
-export function saveGrammarCards(cards: GrammarCard[]) {
+export function saveGrammarCards(cards: GrammarCard[], options: { sync?: boolean } = {}) {
   if (typeof window === 'undefined') {
     return;
   }
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
   window.dispatchEvent(new CustomEvent('grammar-cards-updated'));
+  if (options.sync !== false) {
+    void import('@/components/copilot/copilot-api')
+      .then(({ saveRemoteGrammarCards }) => saveRemoteGrammarCards(cards))
+      .catch(() => undefined);
+  }
 }
 
 export function getDefaultGrammarCards(): GrammarCard[] {
