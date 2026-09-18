@@ -466,9 +466,10 @@ export async function getGrammarCards(userId: string) {
 }
 
 export async function replaceGrammarCards(userId: string, cards: GrammarCard[]) {
-  const client = await database();
-  await client.query('BEGIN');
+  const pool = await database();
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     await client.query('DELETE FROM grammar_cards WHERE user_id = $1', [userId]);
     for (const card of cards) {
       await client.query(
@@ -481,20 +482,33 @@ export async function replaceGrammarCards(userId: string, cards: GrammarCard[]) 
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
+  } finally {
+    client.release();
   }
 }
 
 export async function initializeDefaultGrammarCards(userId: string, cards: GrammarCard[]) {
-  const client = await database();
-  const result = await client.query(
-    'UPDATE app_users SET cards_initialized = TRUE WHERE id = $1 AND cards_initialized = FALSE RETURNING id',
-    [userId],
-  );
-  if (result.rowCount !== 1) return;
-  for (const card of cards) {
-    await client.query(
-      'INSERT INTO grammar_cards (user_id, card_id, data) VALUES ($1, $2, $3::jsonb) ON CONFLICT DO NOTHING',
-      [userId, card.id, JSON.stringify(card)],
+  const pool = await database();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(
+      'UPDATE app_users SET cards_initialized = TRUE WHERE id = $1 AND cards_initialized = FALSE RETURNING id',
+      [userId],
     );
+    if (result.rowCount === 1) {
+      for (const card of cards) {
+        await client.query(
+          'INSERT INTO grammar_cards (user_id, card_id, data) VALUES ($1, $2, $3::jsonb) ON CONFLICT DO NOTHING',
+          [userId, card.id, JSON.stringify(card)],
+        );
+      }
+    }
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
 }

@@ -44,7 +44,7 @@ Copilot 抽屜支援建立自訂助教，每個助教有名稱與教學指示；
 這個專案現在分成兩個部署：
 
 1. GitHub Pages 提供 `next build` 產生的 `out/` 靜態前端。
-2. Render Web Service 執行 `npm run start`，提供 OAuth、CORS、Postgres、卡片 API 與 Copilot API。
+2. Render Web Service 執行 `npm run start`，提供 OAuth、CORS、Postgres、卡片 API 與 Copilot API。Postgres 可以使用 Render 或 Neon；API 只需要標準的 `DATABASE_URL`。
 
 ### GitHub OAuth App
 
@@ -61,7 +61,9 @@ Copilot 抽屜支援建立自訂助教，每個助教有名稱與教學指示；
 
 ### Render
 
-`render.yaml` 會建立 Web Service 與 Postgres。設定 OAuth 的兩個 secret，以及 `API_PUBLIC_URL`、`FRONTEND_URL`、`CORS_ORIGINS`；`SESSION_SECRET` 由 Render 自動產生。Render 的健康檢查為 `/api/health`。
+`render.yaml` 會建立 Web Service；`DATABASE_URL` 必須手動設定為 Neon connection string。資料庫遷移完成前不要刪除舊的 Render Postgres。設定 OAuth 的兩個 secret，以及 `API_PUBLIC_URL`、`FRONTEND_URL`、`CORS_ORIGINS`；`SESSION_SECRET` 由 Render 自動產生，遷移時必須保持不變。Render 的健康檢查為 `/api/health`。
+
+Neon 的 `pg_dump`、`pg_restore` 與管理操作應使用 direct connection string。Render API 可使用 direct connection string；若改用 Neon 的 pooled connection string，請保留應用程式交易在同一個 checked-out client 上。Neon Free 的資料庫會 scale to zero，第一次請求可能需要等待資料庫喚醒；並有 0.5 GB 儲存與每月 100 CU-hours 限制。
 
 ### GitHub Pages
 

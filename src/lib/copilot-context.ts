@@ -2,6 +2,7 @@ import type { DifficultyGroup, GrammarCard, GrammarCardDraft } from '@/lib/gramm
 
 export const MAX_COPILOT_CONTEXT_LENGTH = 4000;
 export const MAX_COPILOT_MESSAGE_LENGTH = 1000;
+export const MAX_LEARNER_MEMORY_LENGTH = 6000;
 
 export type GrammarCardEditChanges = Partial<GrammarCardDraft> & {
   difficultyGroup?: DifficultyGroup | null;
@@ -142,4 +143,35 @@ export function validateCreateCard(value: unknown): (GrammarCardDraft & { diffic
     specialNote: record.specialNote as string,
     ...(record.difficultyGroup ? { difficultyGroup: record.difficultyGroup } : {}),
   };
+}
+
+export function serializeLearnerMemory(cards: GrammarCard[], currentCardId: string): string {
+  const candidates = cards
+    .filter((card) => card.id !== currentCardId)
+    .sort((left, right) => Number(right.difficultyGroup === 'difficult') - Number(left.difficultyGroup === 'difficult'))
+    .map((card) => ({
+      level: bounded(card.level, 20),
+      pattern: bounded(card.pattern, 120),
+      meaning: bounded(card.meaning, 300),
+      specialNote: bounded(card.specialNote, 300),
+      reviewLabel: card.difficultyGroup ?? 'untagged',
+    }));
+
+  const records: typeof candidates = [];
+  for (const candidate of candidates.slice(0, 24)) {
+    const next = [...records, candidate];
+    const preview = JSON.stringify({
+      totalRecords: cards.length,
+      difficultRecords: cards.filter((card) => card.difficultyGroup === 'difficult').length,
+      records: next,
+    });
+    if (preview.length > MAX_LEARNER_MEMORY_LENGTH) break;
+    records.push(candidate);
+  }
+
+  return JSON.stringify({
+    totalRecords: cards.length,
+    difficultRecords: cards.filter((card) => card.difficultyGroup === 'difficult').length,
+    records,
+  });
 }
