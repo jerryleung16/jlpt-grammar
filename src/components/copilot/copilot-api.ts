@@ -1,8 +1,8 @@
 import type { GrammarMutationProposal } from '@/lib/copilot-context';
 import type { GrammarCard } from '@/lib/grammar-data';
 
-const apiOrigin = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || '';
-const apiPath = (path: string) => `${apiOrigin}${apiOrigin ? path : `/jlpt-grammar${path}`}`;
+const apiOrigin = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, '') || 'https://jlpt-grammar-api.onrender.com';
+const apiPath = (path: string) => `${apiOrigin}${path}`;
 const copilotEndpoint = apiPath('/api/copilot');
 
 export type CopilotTurn = {
