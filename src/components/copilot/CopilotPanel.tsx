@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Bot, Edit3, MessageCircle, Plus, RotateCcw, Send, Settings2, Trash2, X } from 'lucide-react';
+import { ArrowDown, Bot, Edit3, MessageCircle, Plus, RotateCcw, Send, Settings2, Trash2, X } from 'lucide-react';
 import {
   cancelCopilotSession,
   createCopilotAgent,
@@ -288,17 +288,30 @@ export default function CopilotPanel({ activeCard, onApplyProposal }: CopilotPan
   };
 
   const handleDeleteSession = async () => {
-    if (!selectedSession) return;
-    await deleteCopilotSession(selectedSession.id);
-    const remaining = sessions.filter((session) => session.id !== selectedSession.id);
-    if (remaining.length === 0) {
-      const created = await createCopilotSession('文法助教');
-      setSessions([created.session]);
-      setSelectedSessionId(created.session.id);
-    } else {
-      setSessions(remaining);
-      setSelectedSessionId(remaining[0].id);
+    if (!selectedSession || !window.confirm(`刪除「${selectedSession.name}」？`)) return;
+    try {
+      await deleteCopilotSession(selectedSession.id);
+      const remaining = sessions.filter((session) => session.id !== selectedSession.id);
+      if (remaining.length === 0) {
+        const created = await createCopilotSession('文法助教', selectedAgentId ?? undefined);
+        setSessions([created.session]);
+        setSelectedSessionId(created.session.id);
+        setSelectedAgentId(created.session.agentId);
+      } else {
+        setSessions(remaining);
+        setSelectedSessionId(remaining[0].id);
+        setSelectedAgentId(remaining[0].agentId);
+      }
+      setMessage('');
+      setSourceTurn(null);
+      setError('');
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '無法刪除目前對話。');
     }
+  };
+
+  const handleScrollToBottom = () => {
+    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   };
 
   const handleApplyProposal = (proposal: GrammarMutationProposal) => {
@@ -336,6 +349,9 @@ export default function CopilotPanel({ activeCard, onApplyProposal }: CopilotPan
               </div>
               <button type="button" onClick={handleNewSession} disabled={!isReady || isLoading} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="新增對話" title="新增對話">
                 <Plus size={18} aria-hidden="true" />
+              </button>
+              <button type="button" onClick={handleScrollToBottom} disabled={!isReady} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="捲動到最新回答" title="捲動到最新回答">
+                <ArrowDown size={18} aria-hidden="true" />
               </button>
               <button type="button" onClick={handleDeleteSession} disabled={!selectedSession || isLoading} className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="刪除目前對話" title="刪除目前對話">
                 <Trash2 size={17} aria-hidden="true" />
