@@ -259,13 +259,18 @@ function serializeTurn(turn: AgentTurn) {
 }
 
 function summarize(entry: AgentSession) {
-  const usage = entry.turns.reduce((summary, turn) => ({
-    requestCount: summary.requestCount + (turn.status === 'success' ? 1 : 0),
-    inputTokens: summary.inputTokens === null || turn.inputTokens === null ? null : summary.inputTokens + turn.inputTokens,
-    outputTokens: summary.outputTokens === null || turn.outputTokens === null ? null : summary.outputTokens + turn.outputTokens,
-    totalTokens: summary.totalTokens === null || turn.totalTokens === null ? null : summary.totalTokens + turn.totalTokens,
-    totalNanoAiu: summary.totalNanoAiu === null || turn.totalNanoAiu === null ? null : summary.totalNanoAiu + turn.totalNanoAiu,
-  }), { requestCount: 0, inputTokens: 0 as number | null, outputTokens: 0 as number | null, totalTokens: 0 as number | null, totalNanoAiu: 0 as number | null });
+  const successfulTurns = entry.turns.filter((turn) => turn.status === 'success');
+  const sumKnown = (value: (turn: AgentTurn) => number | null) => {
+    const values = successfulTurns.map(value).filter((item): item is number => item !== null);
+    return values.length > 0 ? values.reduce((total, item) => total + item, 0) : null;
+  };
+  const usage = {
+    requestCount: successfulTurns.length,
+    inputTokens: sumKnown((turn) => turn.inputTokens),
+    outputTokens: sumKnown((turn) => turn.outputTokens),
+    totalTokens: sumKnown((turn) => turn.totalTokens),
+    totalNanoAiu: sumKnown((turn) => turn.totalNanoAiu),
+  };
   return {
     id: entry.persisted.id,
     name: entry.persisted.name,

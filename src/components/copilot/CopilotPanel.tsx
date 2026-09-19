@@ -84,6 +84,12 @@ function TurnView({
   onRetry: () => void;
   onEdit: () => void;
 }) {
+  const tokenSummary = [
+    turn.inputTokens !== null ? `輸入 ${turn.inputTokens.toLocaleString()}` : null,
+    turn.outputTokens !== null ? `輸出 ${turn.outputTokens.toLocaleString()}` : null,
+    turn.totalTokens !== null ? `合計 ${turn.totalTokens.toLocaleString()}` : null,
+  ].filter(Boolean).join(' · ');
+
   return (
     <div className="space-y-2">
       <div className="ml-8 rounded-2xl rounded-tr-sm bg-slate-900 px-3 py-2 text-sm text-white dark:bg-blue-500">
@@ -108,7 +114,7 @@ function TurnView({
             <button type="button" onClick={onRetry} className="inline-flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700">
               <RotateCcw size={13} aria-hidden="true" />重試
             </button>
-            {turn.totalTokens !== null ? <span className="ml-auto text-slate-400">{turn.totalTokens.toLocaleString()} tokens</span> : null}
+            {tokenSummary ? <span className="ml-auto text-slate-400">{tokenSummary} tokens</span> : null}
           </div>
         </div>
       ) : turn.error ? (
@@ -335,7 +341,7 @@ export default function CopilotPanel({ activeCard, onApplyProposal }: CopilotPan
                 <button type="button" onClick={beginEditAgent} disabled={!selectedAgent || isLoading} className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800" title="編輯目前助教" aria-label="編輯目前助教"><Settings2 size={16} aria-hidden="true" /></button>
                 <button type="button" onClick={() => void handleDeleteAgent()} disabled={!selectedAgent || agents.length <= 1 || isLoading} className="rounded-lg p-1.5 text-slate-600 hover:bg-slate-100 disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800" title="刪除目前助教" aria-label="刪除目前助教"><Trash2 size={15} aria-hidden="true" /></button>
               </div>
-              {selectedSession ? <p className="mt-1 text-[11px] text-slate-400">本對話：{selectedSession.usage.requestCount} 次請求{selectedSession.usage.totalTokens !== null ? ` · ${selectedSession.usage.totalTokens.toLocaleString()} tokens` : ' · token 資料尚未提供'}</p> : null}
+              {selectedSession ? <p className="mt-1 text-[11px] text-slate-400">本對話：{selectedSession.usage.requestCount} 次請求{selectedSession.usage.inputTokens !== null ? ` · 輸入 ${selectedSession.usage.inputTokens.toLocaleString()}` : ''}{selectedSession.usage.outputTokens !== null ? ` · 輸出 ${selectedSession.usage.outputTokens.toLocaleString()}` : ''}{selectedSession.usage.totalTokens !== null ? ` · 合計 ${selectedSession.usage.totalTokens.toLocaleString()} tokens` : ' · token 資料尚未提供'}</p> : null}
             </div>
 
             {showAgentEditor ? <form onSubmit={(event) => void handleSaveAgent(event)} className="border-b border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/30"><div className="mb-2 flex items-center justify-between"><p className="text-sm font-bold text-slate-800 dark:text-slate-100">{editingAgentId ? '編輯自訂助教' : '新增自訂助教'}</p><button type="button" onClick={() => setShowAgentEditor(false)} className="text-xs font-semibold text-slate-500">取消</button></div><input value={agentName} onChange={(event) => setAgentName(event.target.value)} maxLength={80} required placeholder="助教名稱" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" /><textarea value={agentInstructions} onChange={(event) => setAgentInstructions(event.target.value)} maxLength={4000} rows={3} placeholder="例如：用 N4 程度、繁體中文和表格解釋，並多給生活化例句。" className="mt-2 w-full resize-none rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" /><button type="submit" className="mt-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-bold text-white hover:bg-blue-700">儲存助教</button></form> : null}
