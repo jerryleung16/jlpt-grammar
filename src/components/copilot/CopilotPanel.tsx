@@ -147,9 +147,14 @@ export default function CopilotPanel({ activeCard, onApplyProposal }: CopilotPan
   const [error, setError] = useState('');
   const [appliedProposalIds, setAppliedProposalIds] = useState<Set<string>>(new Set());
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const conversationEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const selectedSession = sessions.find((session) => session.id === selectedSessionId) ?? null;
   const selectedAgent = agents.find((agent) => agent.id === (selectedAgentId ?? selectedSession?.agentId)) ?? agents[0] ?? null;
+
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [selectedSessionId, selectedSession?.turns.length, error]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -360,6 +365,7 @@ export default function CopilotPanel({ activeCard, onApplyProposal }: CopilotPan
               {isReady && selectedSession?.turns.length === 0 ? <p className="rounded-xl border border-dashed border-slate-300 p-4 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">可以問目前這張文法卡的意思、語感、例句，或請我提出卡片修改建議。</p> : null}
               {selectedSession?.turns.map((turn) => <TurnView key={turn.id} turn={turn} activeCard={activeCard} appliedProposalIds={appliedProposalIds} onApplyProposal={handleApplyProposal} onRetry={() => void handleRetry(turn)} onEdit={() => handleEdit(turn)} />)}
               {error ? <p className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 dark:border-rose-900 dark:bg-rose-950/30 dark:text-rose-200">{error}</p> : null}
+              <div ref={conversationEndRef} aria-hidden="true" />
             </div>
 
             <form className="border-t border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900" onSubmit={(event) => { event.preventDefault(); void handleSend(); }}>
