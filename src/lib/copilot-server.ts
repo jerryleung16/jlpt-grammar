@@ -175,6 +175,11 @@ function sessionConfig(entry: AgentSession) {
     sessionId: entry.persisted.sdkSessionId,
     tools: [makeProposalTool(entry), makeCreateTool(entry)],
     availableTools: ['custom:propose_grammar_card_edit', 'custom:propose_grammar_card_create'],
+    gitHubTokenProvider: async () => ({
+      kind: 'token' as const,
+      accessToken: entry.accessToken,
+      expiresIn: 8 * 60 * 60,
+    }),
     systemMessage: {
       content: [
         'You are a read-only Japanese grammar tutor with two proposal-only tools.',
