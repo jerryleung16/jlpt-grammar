@@ -175,11 +175,6 @@ function sessionConfig(entry: AgentSession) {
     sessionId: entry.persisted.sdkSessionId,
     tools: [makeProposalTool(entry), makeCreateTool(entry)],
     availableTools: ['custom:propose_grammar_card_edit', 'custom:propose_grammar_card_create'],
-    gitHubTokenProvider: async () => ({
-      kind: 'token' as const,
-      accessToken: entry.accessToken,
-      expiresIn: 8 * 60 * 60,
-    }),
     systemMessage: {
       content: [
         'You are a read-only Japanese grammar tutor with two proposal-only tools.',
@@ -190,6 +185,17 @@ function sessionConfig(entry: AgentSession) {
     },
     ...(process.env.COPILOT_MODEL ? { model: process.env.COPILOT_MODEL } : {}),
   };
+}
+
+async function installSessionCredentials(entry: AgentSession) {
+  const result = await entry.sdkSession.rpc.gitHubAuth.setCredentials({
+    credentials: {
+      type: 'token',
+      host: 'https://github.com',
+      token: entry.accessToken,
+    },
+  });
+  if (!result.success) throw new Error('copilot_auth_failed');
 }
 
 async function getCopilotClient(userId: string, accessToken: string) {
@@ -309,6 +315,7 @@ async function hydrateSession(userId: string, accessToken: string, session: Stor
     entry.sdkSession = await client.createSession(sessionConfig(entry));
     await updateCopilotSdkSession(session.id, entry.persisted.sdkSessionId);
   }
+  await installSessionCredentials(entry);
   activeSessions.set(session.id, entry);
   return entry;
 }
@@ -384,6 +391,7 @@ export async function createAgentSession(userId: string, accessToken: string, na
   };
   const client = await getCopilotClient(userId, accessToken);
   entry.sdkSession = await client.createSession(sessionConfig(entry));
+  await installSessionCredentials(entry);
   await persistCopilotSession(persisted);
   activeSessions.set(persisted.id, entry);
   return summarize(entry);
