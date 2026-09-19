@@ -136,6 +136,6 @@ export async function downloadGrammarCardsFromGithub(
     throw new Error('同步檔案格式不正確。');
   }
 
-  saveGrammarCards(parsed.cards);
+  saveGrammarCards(parsed.cards, { pendingRemoteSync: true });
   return parsed.cards;
 }

@@ -13,6 +13,10 @@ import {
 
 type User = { id: string; login: string; avatarUrl: string | null };
 
+function notifyAuthStateChanged() {
+  window.dispatchEvent(new CustomEvent('auth-state-changed'));
+}
+
 export default function AuthStatus() {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,12 +47,14 @@ export default function AuthStatus() {
           const returnPath = consumeGithubLoginReturnPath();
           window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
           const result = await completeGithubLogin(callbackCode);
+          notifyAuthStateChanged();
           if (active) setUser(result.user);
           if (returnPath.startsWith('#')) {
             window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${returnPath}`);
           }
         } else {
           const result = await getAuthUser();
+          notifyAuthStateChanged();
           if (active) setUser(result?.user ?? null);
         }
       } catch {
@@ -95,7 +101,10 @@ export default function AuthStatus() {
     <button
       type="button"
       onClick={() => {
-        void logoutGithub().then(() => setUser(null));
+        void logoutGithub().then(() => {
+          notifyAuthStateChanged();
+          setUser(null);
+        });
       }}
       className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
       title="登出 GitHub"

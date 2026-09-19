@@ -91,6 +91,7 @@ const DEFAULT_GRAMMAR_CARDS: GrammarCard[] = [
 ];
 
 const STORAGE_KEY = 'jlpt-grammar-cards';
+const PENDING_REMOTE_SYNC_KEY = 'jlpt-grammar-cards-pending-remote-sync';
 
 export function getStoredGrammarCards(): GrammarCard[] {
   if (typeof window === 'undefined') {
@@ -110,16 +111,32 @@ export function getStoredGrammarCards(): GrammarCard[] {
   }
 }
 
-export function saveGrammarCards(cards: GrammarCard[], options: { sync?: boolean } = {}) {
+export function hasPendingRemoteCardSync() {
+  if (typeof window === 'undefined') return false;
+  return window.localStorage.getItem(PENDING_REMOTE_SYNC_KEY) === 'true';
+}
+
+export function clearPendingRemoteCardSync() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(PENDING_REMOTE_SYNC_KEY);
+}
+
+export function saveGrammarCards(cards: GrammarCard[], options: { sync?: boolean; pendingRemoteSync?: boolean } = {}) {
   if (typeof window === 'undefined') {
     return;
   }
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  if (options.pendingRemoteSync) {
+    window.localStorage.setItem(PENDING_REMOTE_SYNC_KEY, 'true');
+  }
   window.dispatchEvent(new CustomEvent('grammar-cards-updated'));
   if (options.sync !== false) {
     void import('@/components/copilot/copilot-api')
       .then(({ saveRemoteGrammarCards }) => saveRemoteGrammarCards(cards))
+      .then((result) => {
+        if (result) clearPendingRemoteCardSync();
+      })
       .catch(() => undefined);
   }
 }

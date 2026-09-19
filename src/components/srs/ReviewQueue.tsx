@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getGrammarCardDraft,
   getStoredGrammarCards,
+  clearPendingRemoteCardSync,
+  hasPendingRemoteCardSync,
   saveGrammarCards,
   updateGrammarCard,
   type GrammarCard,
@@ -13,7 +15,7 @@ import GrammarEditModal from '@/components/grammar/GrammarEditModal';
 import { getGithubSyncConfig, uploadGrammarCardsToGithub } from '@/lib/github-sync';
 import SwipeableCard from '@/components/srs/SwipeableCard';
 import CopilotPanel from '@/components/copilot/CopilotPanel';
-import { getRemoteGrammarCards } from '@/components/copilot/copilot-api';
+import { getRemoteGrammarCards, saveRemoteGrammarCards } from '@/components/copilot/copilot-api';
 import type { GrammarMutationProposal } from '@/lib/copilot-context';
 
 type ReviewPile = 'all' | 'untagged' | 'easy' | 'difficult';
@@ -85,14 +87,30 @@ export default function ReviewQueue() {
     };
     refreshQueue();
 
-    void getRemoteGrammarCards().then((result) => {
+    const syncRemoteCards = async () => {
+      if (hasPendingRemoteCardSync()) {
+        const result = await saveRemoteGrammarCards(getStoredGrammarCards());
+        if (result) {
+          clearPendingRemoteCardSync();
+          refreshQueue();
+        }
+        return;
+      }
+
+      const result = await getRemoteGrammarCards();
       if (!result) return;
       saveGrammarCards(result.cards, { sync: false });
       refreshQueue();
-    }).catch(() => undefined);
+    };
+
+    void syncRemoteCards().catch(() => undefined);
 
     window.addEventListener('grammar-cards-updated', refreshQueue);
-    return () => window.removeEventListener('grammar-cards-updated', refreshQueue);
+    window.addEventListener('auth-state-changed', syncRemoteCards);
+    return () => {
+      window.removeEventListener('grammar-cards-updated', refreshQueue);
+      window.removeEventListener('auth-state-changed', syncRemoteCards);
+    };
   }, []);
 
   const reviewStats = useMemo(() => {
