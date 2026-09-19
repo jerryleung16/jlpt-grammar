@@ -222,11 +222,20 @@ export default function CopilotPanel({ activeCard, onApplyProposal }: CopilotPan
   const handleSaveAgent = async (event: FormEvent) => {
     event.preventDefault();
     try {
-      const result = editingAgentId
-        ? await updateCopilotAgent(editingAgentId, agentName, agentInstructions)
-        : await createCopilotAgent(agentName, agentInstructions);
-      setAgents((current) => editingAgentId ? current.map((agent) => agent.id === result.agent.id ? result.agent : agent) : [...current, result.agent]);
-      setSelectedAgentId(result.agent.id);
+      if (editingAgentId) {
+        const result = await updateCopilotAgent(editingAgentId, agentName, agentInstructions);
+        setAgents((current) => current.map((agent) => agent.id === result.agent.id ? result.agent : agent));
+        setSelectedAgentId(result.agent.id);
+      } else {
+        const result = await createCopilotAgent(agentName, agentInstructions);
+        const session = await createCopilotSession(`${result.agent.name} · 新對話`, result.agent.id);
+        setAgents((current) => [...current, result.agent]);
+        setSessions((current) => [...current, session.session]);
+        setSelectedAgentId(result.agent.id);
+        setSelectedSessionId(session.session.id);
+        setMessage('');
+        setSourceTurn(null);
+      }
       setShowAgentEditor(false);
       setEditingAgentId(null);
     } catch (agentError) {
