@@ -296,7 +296,13 @@ type UsageAccumulator = {
 
 async function hydrateSession(userId: string, accessToken: string, session: StoredCopilotSession) {
   const cached = activeSessions.get(session.id);
-  if (cached) return cached;
+  if (cached) {
+    if (cached.accessToken !== accessToken) {
+      cached.accessToken = accessToken;
+      await installSessionCredentials(cached);
+    }
+    return cached;
+  }
   const entry: AgentSession = {
     persisted: session,
     agent: session.agentId ? (await getCopilotAgent(userId, session.agentId) ?? await ensureDefaultAgent(userId)) : await ensureDefaultAgent(userId),
