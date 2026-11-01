@@ -8,7 +8,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
-        value: 20
+        value: 22
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
@@ -25,3 +25,7 @@ services:
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: FIREBASE_PROJECT_ID
+        value: nihongo-learning-jerryleung16
+      - key: LEARNING_SYNC_ENABLED
+        value: "false"

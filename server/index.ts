@@ -3,6 +3,9 @@ import express, { type Request, type Response } from 'express';
 import next from 'next';
 import { currentUser, exchangeGithubHandoff, githubCallback, githubLogin, logout, publicUser } from '@/lib/hosted-auth';
 import { corsHeaders } from '@/lib/hosted-cors';
+import { learningRouter } from '@/lib/learning/cloud-router';
+import { authenticateLearning } from '@/lib/learning/firebase-server';
+import { hostedLearning } from '@/lib/learning/hosted-learning';
 import {
   databaseHealth,
   getGrammarCards,
@@ -25,7 +28,8 @@ import {
 } from '@/lib/copilot-server';
 
 const port = Number(process.env.PORT || 3000);
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const host = process.env.HOST || '0.0.0.0';
+const isDevelopment = process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test';
 
 function errorResponse(error: unknown) {
   const code = error instanceof Error ? error.message : 'unknown_error';
@@ -84,17 +88,28 @@ function routeError(error: unknown, response: Response) {
 }
 
 export async function createServer() {
+  const learningOnly = process.env.LEARNING_ONLY === 'true';
   const app = express();
   app.disable('x-powered-by');
   app.use(corsHeaders);
+  const learning = learningRouter({ authenticate: authenticateLearning, store: hostedLearning });
+  app.use('/api/learning', learning);
+  app.use('/jlpt-grammar/api/learning', learning);
   app.use(express.json({ limit: '128kb' }));
 
   const api = express.Router();
 
   api.get('/health', async (_request, response) => {
-    const database = await databaseHealth();
-    response.json({ ok: database.reachable || !hasDatabase(), database });
+    const database = await databaseHealth(!learningOnly);
+    const ok = database.reachable || (!learningOnly && !hasDatabase());
+    response.status(learningOnly && !ok ? 503 : 200).json({ ok, database });
   });
+
+  if (learningOnly) {
+    api.use((_request, response) => {
+      response.status(404).json({ code: 'not_found', error: '呢個獨立預覽只提供學習同步 API。' });
+    });
+  }
 
   api.get('/auth/github', (request, response) => {
     try {
@@ -258,6 +273,12 @@ export async function createServer() {
   app.use('/api', api);
   app.use('/jlpt-grammar/api', api);
 
+  if (learningOnly) {
+    app.get(['/', '/jlpt-grammar', '/jlpt-grammar/'], (_request, response) => {
+      response.redirect(302, '/jlpt-grammar/preview/');
+    });
+  }
+
   if (isDevelopment) {
     const nextApp = next({ dev: true, hostname: 'localhost', port });
     await nextApp.prepare();
@@ -274,8 +295,8 @@ export async function createServer() {
 
 if (process.env.NODE_ENV !== 'test') {
   createServer().then((app) => {
-    const server = app.listen(port, '0.0.0.0', () => {
-      console.log(`JLPT grammar server listening on ${port}`);
+    const server = app.listen(port, host, () => {
+      console.log(`JLPT grammar server listening on ${host}:${port}`);
     });
     const shutdown = async () => {
       await stopCopilot();

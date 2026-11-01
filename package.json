@@ -6,20 +6,26 @@
     "dev": "tsx server/index.ts",
     "build": "next build",
     "start": "cross-env NODE_ENV=production tsx server/index.ts",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:learning": "tsx --test src/lib/learning/*.test.ts"
   },
   "dependencies": {
     "@github/copilot-sdk": "^1.0.14",
     "express": "^5.2.1",
+    "firebase": "^13.1.0",
+    "firebase-admin": "^14.5.0",
     "framer-motion": "^12.43.0",
+    "idb": "^8.0.3",
     "lucide-react": "^1.28.0",
     "next": "16.3.0",
     "pg": "^8.23.0",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "ts-fsrs": "^5.4.1"
+    "ts-fsrs": "^5.4.1",
+    "zod": "^4.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
     "@tailwindcss/postcss": "^4",
     "@tinacms/cli": "^2.5.6",
     "@types/express": "^5.0.6",
@@ -30,6 +36,7 @@
     "cross-env": "^10.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "fake-indexeddb": "^6.0.0",
     "tailwindcss": "^4",
     "tinacms": "^3.11.0",
     "tsx": "^4.23.13",

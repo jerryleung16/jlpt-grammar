@@ -50,11 +50,26 @@ export type StoredCopilotTurn = {
   updatedAt: number;
 };
 
+const learningOnly = process.env.LEARNING_ONLY === 'true';
+function connectionString() {
+  if (!learningOnly || !process.env.DATABASE_URL) return process.env.DATABASE_URL;
+  try {
+    const url = new URL(process.env.DATABASE_URL);
+    if (!['postgres:', 'postgresql:'].includes(url.protocol)) throw new Error('invalid_protocol');
+    for (const key of ['sslmode', 'sslcert', 'sslkey', 'sslrootcert']) url.searchParams.delete(key);
+    url.searchParams.set('sslmode', 'verify-full');
+    return url.toString();
+  } catch {
+    throw new Error('database_configuration_invalid');
+  }
+}
 const pool = process.env.DATABASE_URL
   ? new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
+      connectionString: connectionString(),
+      ssl: learningOnly ? { rejectUnauthorized: true } :
+        process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined,
       max: Number(process.env.DATABASE_POOL_MAX || 10),
+      ...(learningOnly ? { connectionTimeoutMillis: 15000, query_timeout: 15000 } : {}),
     })
   : null;
 
@@ -68,8 +83,13 @@ export function hasDatabase() {
   return Boolean(pool);
 }
 
-async function database() {
+export function databasePool() {
   if (!pool) databaseUnavailable();
+  return pool;
+}
+
+export async function database() {
+  const pool = databasePool();
   schemaPromise ??= (async () => {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS app_users (
@@ -156,13 +176,14 @@ function timestamp(value: Date | string) {
   return new Date(value).getTime();
 }
 
-export async function databaseHealth() {
+export async function databaseHealth(initializeLegacySchema = true) {
   if (!pool) return { configured: false, reachable: false };
   try {
-    const client = await database();
+    const client = initializeLegacySchema ? await database() : databasePool();
     await client.query('SELECT 1');
     return { configured: true, reachable: true };
   } catch {
+    console.error('[database] health_check_failed');
     return { configured: true, reachable: false };
   }
 }

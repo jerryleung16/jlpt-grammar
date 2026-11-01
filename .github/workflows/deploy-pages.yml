@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -33,6 +33,12 @@ jobs:
       - name: Build static export
         env:
           NEXT_PUBLIC_API_BASE_URL: ${{ vars.RENDER_API_URL || 'https://jlpt-grammar-api.onrender.com' }}
+          NEXT_PUBLIC_FIREBASE_API_KEY: ${{ vars.FIREBASE_API_KEY }}
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.FIREBASE_AUTH_DOMAIN }}
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT_ID }}
+          NEXT_PUBLIC_FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID }}
+          NEXT_PUBLIC_LEARNING_SYNC_ENABLED: ${{ vars.LEARNING_SYNC_ENABLED || 'false' }}
+          NEXT_PUBLIC_LEARNING_API_BASE_URL: ${{ vars.RENDER_API_URL || 'https://jlpt-grammar-api.onrender.com' }}
         run: npm run build
 
       - name: Upload Pages artifact

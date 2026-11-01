@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: nihongo-learning-preview
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/health
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: NODE_ENV
+        value: production
+      - key: LEARNING_ONLY
+        value: "true"
+      - key: NEXT_PUBLIC_LEARNING_ONLY
+        value: "true"
+      - key: LEARNING_SYNC_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_LEARNING_SYNC_ENABLED
+        value: "true"
+      - key: NEXT_PUBLIC_LEARNING_API_BASE_URL
+        value: ""
+      - key: FIREBASE_PROJECT_ID
+        value: nihongo-learning-jerryleung16
+      - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        value: nihongo-learning-jerryleung16
+      - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        value: nihongo-learning-jerryleung16.firebaseapp.com
+      - key: NEXT_PUBLIC_FIREBASE_APP_ID
+        value: 1:163994343349:web:db05e236fa37efe5e9ebfc
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_POOL_MAX
+        value: "3"
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        value: /etc/secrets/firebase-admin.json
