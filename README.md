@@ -90,11 +90,15 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 - 兩個 Google 帳戶各自保存獨立快照；第二帳戶的空白學習庫及設定不影響第一帳戶的 8 張卡／8 筆複習。登出再切回原帳戶亦恢復正確分區。
 - 經使用者批准，透過 Firebase Console 暫時停用第二測試使用者；既有登入的上傳被拒絕，本機待傳修改保留，雲端未變。重新啟用並登入後成功補傳；未提升後端只讀角色權限。
 
-測試收尾已恢復帳戶可用狀態及兩邊每日新卡上限 10。資料庫最終核實第一帳戶版本 19（8 張卡／8 筆複習）、第二帳戶版本 5（空白學習庫），且仍只有三張 `learning_*` 表。上述是 API 中斷及帳戶停用驗收，不等於完整網絡斷線、真實回覆丟失或獨立 token 撤銷測試；跨實體裝置、手機／Safari 及正式部署仍待驗收。
+測試收尾已恢復帳戶可用狀態及兩邊每日新卡上限 10。資料庫最終核實第一帳戶版本 19（8 張卡／8 筆複習）、第二帳戶版本 5（空白學習庫），且仍只有三張 `learning_*` 表。上述是 API 中斷及帳戶停用驗收，不等於完整網絡斷線、真實回覆丟失或獨立 token 撤銷測試；跨實體裝置及手機／Safari 仍待驗收。獨立 HTTPS 部署狀態見下節。
 
 ## 本機執行
 
 ### 獨立 HTTPS 預覽發布
+
+線上預覽：[日和學習](https://nihongo-learning-preview.onrender.com/jlpt-grammar/preview/)。
+
+獨立 Render Free 服務已部署 `release/learning-preview` 分支，未改動 `master` 或原有兩站。已驗證首頁轉址、靜態頁面、資料庫健康檢查、同步讀寫對缺少／無效 token 回應 401，以及停用的舊 API 回應 404。線上訪客示範卡、FSRS 評分及測驗答案解析亦已實測；Google 授權網域已加入，仍需一般瀏覽器完成此新網址的真人登入／同步確認。原文法站及個人 Copilot 連結在獨立模式下均指向原站。
 
 `render-preview.yaml` 提供另一個 Render Free 服務的設定範本，不能用它更新原有服務。發布分支與 `master` 分開，並關閉自動部署；使用 Node 22（Firebase Admin 要求），新服務與靜態頁面使用同一個 HTTPS origin。`NEXT_PUBLIC_LEARNING_ONLY=true` 會讓同步固定呼叫本站 API，忽略其他 API origin 設定，避免把本機 `127.0.0.1` 或舊 API 編入公開網站。
 

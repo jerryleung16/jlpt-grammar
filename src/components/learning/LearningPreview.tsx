@@ -20,6 +20,8 @@ const sections: { id: Section; title: string; icon: typeof BookOpen }[] = [
   { id: 'settings', title: '設定', icon: Settings },
 ];
 const labelText = { untagged: '未標籤', easy: '已掌握', difficult: '未掌握' };
+const originalGrammarUrl = process.env.NEXT_PUBLIC_LEARNING_ONLY === 'true'
+  ? 'https://jerryleung16.github.io/jlpt-grammar/' : '/jlpt-grammar/';
 const ratings = [
   { rating: 1, text: '再學一次' }, { rating: 2, text: '困難' },
   { rating: 3, text: '良好' }, { rating: 4, text: '容易' },
@@ -111,7 +113,7 @@ function LearningWorkspace({ scope, identity, section, setSection }: {
             onClick={() => go(id)}><Icon size={20} aria-hidden="true" /><span>{title}</span></button>)}</nav>
         <div className="lp-side-note"><span className="lp-dot" /> {identity.account ? '帳戶分區' : '訪客模式'}
           <p>{sync.status}</p><button type="button" className="lp-text-button" onClick={() => go('settings')}>帳戶與備份設定</button>
-          <a href={process.env.NEXT_PUBLIC_LEARNING_ONLY === 'true' ? 'https://jerryleung16.github.io/jlpt-grammar/' : '/jlpt-grammar/'}>返回原文法站</a>
+          <a href={originalGrammarUrl}>返回原文法站</a>
           <a href="https://jerryleung16.github.io/Japanese-Vocab-Reviser/">開啟原詞彙站</a></div>
       </aside>
       <main id="learning-main" className="lp-main">
@@ -365,7 +367,7 @@ function Preferences({ snapshot, theme, setTheme, busy, commit, identity, sync }
       <button type="button" className="lp-button primary" disabled={busy || !backupConfirmed || summary.conflicts > 0} onClick={() => void merge()}>確認合併匯入</button></div>}
   </Panel><Panel title="個人 AI"><p>Google 登入唔會自動授予個人 Copilot 使用權。學習同步亦唔會將卡片送去 AI。</p>
     <p>原有文法站的 GitHub 登入、同步及個人 Copilot 保持原樣；目前不會把預覽卡片送至舊 AI。</p>
-    <a className="lp-button" href="/jlpt-grammar/">使用原文法站與個人 Copilot<ArrowRight size={18} /></a>
+    <a className="lp-button" href={originalGrammarUrl}>使用原文法站與個人 Copilot<ArrowRight size={18} /></a>
   </Panel><Panel title="教材來源與正式版門檻"><p>目前八張示範卡及練習是本次開發的原創功能範例，尚待獨立語文校對。N1–N5 完整教材未發布。</p>
     <p>正式版本須先確認可計數的課綱、來源及授權，再達到逐項教材、練習與校對 100% 覆蓋。</p>
     <a href="https://www.jlpt.jp/e/faq/#anchor28" target="_blank" rel="noreferrer">JLPT 官方：不公開現行完整出題清單</a>
