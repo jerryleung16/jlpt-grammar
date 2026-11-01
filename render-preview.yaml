@@ -21,8 +21,6 @@ services:
         value: "true"
       - key: NEXT_PUBLIC_LEARNING_SYNC_ENABLED
         value: "true"
-      - key: NEXT_PUBLIC_LEARNING_API_BASE_URL
-        value: ""
       - key: FIREBASE_PROJECT_ID
         value: nihongo-learning-jerryleung16
       - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID

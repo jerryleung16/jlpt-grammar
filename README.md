@@ -96,7 +96,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 
 ### 獨立 HTTPS 預覽發布
 
-`render-preview.yaml` 提供另一個 Render Free 服務的設定範本，不能用它更新原有服務。發布分支與 `master` 分開，並關閉自動部署；使用 Node 22（Firebase Admin 要求），新服務與靜態頁面使用同一個 HTTPS origin。設定空字串的 `NEXT_PUBLIC_LEARNING_API_BASE_URL`，讓瀏覽器呼叫本站 API，不能把本機 `127.0.0.1` 編入公開網站。
+`render-preview.yaml` 提供另一個 Render Free 服務的設定範本，不能用它更新原有服務。發布分支與 `master` 分開，並關閉自動部署；使用 Node 22（Firebase Admin 要求），新服務與靜態頁面使用同一個 HTTPS origin。`NEXT_PUBLIC_LEARNING_ONLY=true` 會讓同步固定呼叫本站 API，忽略其他 API origin 設定，避免把本機 `127.0.0.1` 或舊 API 編入公開網站。
 
 - `LEARNING_ONLY=true` 讓 `/` 及 `/jlpt-grammar/` 轉到整合學習預覽，舊 GitHub／Copilot API 在此服務回應 404；舊網站仍透過獨立連結開啟。沒有宣稱此版本已整合個人 AI。
 - `NEXT_PUBLIC_LEARNING_ONLY=true` 在建置時啟用舊站外部連結。未設上述開關的原部署保持既有首頁與 API 行為。

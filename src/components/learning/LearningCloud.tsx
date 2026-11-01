@@ -56,7 +56,8 @@ export function useCloudSync(scope: LearningScope, getToken: (scope: LearningSco
       } finally { running = false; }
     };
     try {
-      const base = process.env.NEXT_PUBLIC_LEARNING_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://jlpt-grammar-api.onrender.com';
+      const base = process.env.NEXT_PUBLIC_LEARNING_ONLY === 'true' ? window.location.origin :
+        process.env.NEXT_PUBLIC_LEARNING_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://jlpt-grammar-api.onrender.com';
       transport.current = createSyncTransport(base || window.location.origin, () => getToken(scope));
       queue(0);
     } catch (cause) {
