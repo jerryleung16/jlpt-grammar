@@ -98,7 +98,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=
 
 線上預覽：[日和學習](https://nihongo-learning-preview.onrender.com/jlpt-grammar/preview/)。
 
-獨立 Render Free 服務已部署 `release/learning-preview` 分支，未改動 `master` 或原有兩站。已驗證首頁轉址、靜態頁面、資料庫健康檢查、同步讀寫對缺少／無效 token 回應 401，以及停用的舊 API 回應 404。線上訪客示範卡、FSRS 評分及測驗答案解析亦已實測；Google 授權網域已加入，仍需一般瀏覽器完成此新網址的真人登入／同步確認。原文法站及個人 Copilot 連結在獨立模式下均指向原站。
+獨立 Render Free 服務已部署 `release/learning-preview` 分支，未改動 `master` 或原有兩站。已驗證首頁轉址、靜態頁面、資料庫健康檢查、同步讀寫對缺少／無效 token 回應 401，以及停用的舊 API 回應 404。線上訪客示範卡、FSRS 評分及測驗答案解析亦已實測，重新整理後保留評分及答題進度。Google 授權網域已加入；使用者在一般瀏覽器確認新網址 Google 登入成功，啟用同步後取回之前的 8 張卡。原文法站及個人 Copilot 連結在獨立模式下均指向原站。
 
 `render-preview.yaml` 提供另一個 Render Free 服務的設定範本，不能用它更新原有服務。發布分支與 `master` 分開，並關閉自動部署；使用 Node 22（Firebase Admin 要求），新服務與靜態頁面使用同一個 HTTPS origin。`NEXT_PUBLIC_LEARNING_ONLY=true` 會讓同步固定呼叫本站 API，忽略其他 API origin 設定，避免把本機 `127.0.0.1` 或舊 API 編入公開網站。
 
